@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "displayName": "HybridToolkit",
   "description": "整合多个0GC,多线程,DOTS,GPUDriven库的开发套件",
-  "unity": "6000.2.14f1",
+  "unity": "2022.3",
   "unityRelease": "0b5",
   "dependencies": {
     "com.cysharp.unitask": "2.5.10",
