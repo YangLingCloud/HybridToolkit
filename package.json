@@ -1,6 +1,6 @@
 {
   "name": "com.lingyun.hybridtoolkit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "displayName": "HybridToolkit",
   "description": "整合多个0GC,多线程,DOTS,GPUDriven库的开发套件",
   "unity": "2022.3",
