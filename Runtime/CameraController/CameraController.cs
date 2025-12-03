@@ -39,35 +39,15 @@ namespace HybridToolkit.CameraController
         
         // 相机当前状态
         /// <summary>
-        /// 相机当前俯仰角（度）
+        /// 相机当前姿态（x=Pitch, y=Yaw, z=Distance）
         /// </summary>
-        private float currentPitch;
-        
-        /// <summary>
-        /// 相机当前偏航角（度）
-        /// </summary>
-        private float currentYaw;
-        
-        /// <summary>
-        /// 相机当前与目标的距离
-        /// </summary>
-        private float currentDistance;
+        [SerializeField] private Vector3 currentPose;
         
         // 相机目标状态
         /// <summary>
-        /// 相机目标俯仰角（度）
+        /// 相机目标姿态（x=Pitch, y=Yaw, z=Distance）
         /// </summary>
-        private float targetPitch;
-        
-        /// <summary>
-        /// 相机目标偏航角（度）
-        /// </summary>
-        private float targetYaw;
-        
-        /// <summary>
-        /// 相机目标与目标的距离
-        /// </summary>
-        private float targetDistance;
+        private Vector3 targetPose;
         
         // 速度变量（用于平滑停止效果）
         /// <summary>
@@ -116,11 +96,11 @@ namespace HybridToolkit.CameraController
         /// </summary>
         public float CurrentPitch
         {
-            get => currentPitch;
+            get => currentPose.x;
             set
             {
-                currentPitch = Mathf.Clamp(value, settings.MinPitch, settings.MaxPitch);
-                targetPitch = currentPitch;
+                currentPose.x = Mathf.Clamp(value, settings.MinPitch, settings.MaxPitch);
+                targetPose.x = currentPose.x;
             }
         }
         
@@ -129,11 +109,11 @@ namespace HybridToolkit.CameraController
         /// </summary>
         public float CurrentYaw
         {
-            get => currentYaw;
+            get => currentPose.y;
             set
             {
-                currentYaw = value;
-                targetYaw = currentYaw;
+                currentPose.y = value;
+                targetPose.y = currentPose.y;
             }
         }
         
@@ -142,11 +122,26 @@ namespace HybridToolkit.CameraController
         /// </summary>
         public float CurrentDistance
         {
-            get => currentDistance;
+            get => currentPose.z;
             set
             {
-                currentDistance = Mathf.Clamp(value, settings.MinDistance, settings.MaxDistance);
-                targetDistance = currentDistance;
+                currentPose.z = Mathf.Clamp(value, settings.MinDistance, settings.MaxDistance);
+                targetPose.z = currentPose.z;
+            }
+        }
+        
+        /// <summary>
+        /// 获取或设置当前相机姿态（x=Pitch, y=Yaw, z=Distance）
+        /// </summary>
+        public Vector3 CurrentPose
+        {
+            get => currentPose;
+            set
+            {
+                currentPose.x = Mathf.Clamp(value.x, settings.MinPitch, settings.MaxPitch);
+                currentPose.y = value.y;
+                currentPose.z = Mathf.Clamp(value.z, settings.MinDistance, settings.MaxDistance);
+                targetPose = currentPose;
             }
         }
         
@@ -218,13 +213,8 @@ namespace HybridToolkit.CameraController
                 return;
             }
             
-            currentPitch = settings.DefaultPitch;
-            currentYaw = settings.DefaultYaw;
-            currentDistance = settings.DefaultDistance;
-            
-            targetPitch = currentPitch;
-            targetYaw = currentYaw;
-            targetDistance = currentDistance;
+            currentPose = new Vector3(settings.DefaultPitch, settings.DefaultYaw, settings.DefaultDistance);
+            targetPose = currentPose;
             
             UpdateCameraPosition();
         }
@@ -237,30 +227,30 @@ namespace HybridToolkit.CameraController
             if (isInteracting)
             {
                 // 应用旋转输入
-                targetYaw += rotationInputValue.x * settings.RotationSensitivity;
-                targetPitch += -rotationInputValue.y * settings.RotationSensitivity;
+                targetPose.y += rotationInputValue.x * settings.RotationSensitivity;
+                targetPose.x += -rotationInputValue.y * settings.RotationSensitivity;
                 
                 // 限制俯仰角
-                targetPitch = Mathf.Clamp(targetPitch, settings.MinPitch, settings.MaxPitch);
+                targetPose.x = Mathf.Clamp(targetPose.x, settings.MinPitch, settings.MaxPitch);
                 
                 // 应用缩放输入
-                targetDistance += -zoomInputValue * settings.ZoomSensitivity;
-                targetDistance = Mathf.Clamp(targetDistance, settings.MinDistance, settings.MaxDistance);
+                targetPose.z += -zoomInputValue * settings.ZoomSensitivity;
+                targetPose.z = Mathf.Clamp(targetPose.z, settings.MinDistance, settings.MaxDistance);
             }
             else
             {
                 // 逐渐停止旋转
                 rotationVelocity = Vector2.SmoothDamp(rotationVelocity, Vector2.zero, ref rotationVelocity, settings.RotationDamping);
                 
-                targetYaw += rotationVelocity.x * settings.RotationSensitivity;
-                targetPitch += -rotationVelocity.y * settings.RotationSensitivity;
-                targetPitch = Mathf.Clamp(targetPitch, settings.MinPitch, settings.MaxPitch);
+                targetPose.y += rotationVelocity.x * settings.RotationSensitivity;
+                targetPose.x += -rotationVelocity.y * settings.RotationSensitivity;
+                targetPose.x = Mathf.Clamp(targetPose.x, settings.MinPitch, settings.MaxPitch);
                 
                 // 逐渐停止缩放
                 zoomVelocity = Mathf.SmoothDamp(zoomVelocity, 0f, ref zoomVelocity, settings.ZoomDamping);
                 
-                targetDistance += -zoomVelocity * settings.ZoomSensitivity;
-                targetDistance = Mathf.Clamp(targetDistance, settings.MinDistance, settings.MaxDistance);
+                targetPose.z += -zoomVelocity * settings.ZoomSensitivity;
+                targetPose.z = Mathf.Clamp(targetPose.z, settings.MinDistance, settings.MaxDistance);
             }
         }
         
@@ -273,13 +263,13 @@ namespace HybridToolkit.CameraController
                 return;
             
             // 平滑过渡到目标角度和距离
-            currentPitch = Mathf.Lerp(currentPitch, targetPitch, Time.deltaTime * 10f);
-            currentYaw = Mathf.Lerp(currentYaw, targetYaw, Time.deltaTime * 10f);
-            currentDistance = Mathf.Lerp(currentDistance, targetDistance, Time.deltaTime * 10f);
+            currentPose.x = Mathf.Lerp(currentPose.x, targetPose.x, Time.deltaTime * 10f);
+            currentPose.y = Mathf.Lerp(currentPose.y, targetPose.y, Time.deltaTime * 10f);
+            currentPose.z = Mathf.Lerp(currentPose.z, targetPose.z, Time.deltaTime * 10f);
             
             // 计算相机位置
-            Vector3 direction = new Vector3(0f, 0f, -currentDistance);
-            Quaternion rotation = Quaternion.Euler(currentPitch, currentYaw, 0f);
+            Vector3 direction = new Vector3(0f, 0f, -currentPose.z);
+            Quaternion rotation = Quaternion.Euler(currentPose.x, currentPose.y, 0f);
             Vector3 position = lookAtTarget.position + rotation * direction;
             
             // 设置相机位置和旋转
@@ -347,22 +337,19 @@ namespace HybridToolkit.CameraController
             float resetYaw = targetYawOverride ?? settings.DefaultYaw;
             float resetDistance = targetDistanceOverride ?? settings.DefaultDistance;
             
+            Vector3 resetPose = new Vector3(resetPitch, resetYaw, resetDistance);
+            
             if (useUniTask)
             {
                 // 使用UniTask进行异步归位
                 resetCts = new CancellationTokenSource();
-                ResetCameraAsync(resetPitch, resetYaw, resetDistance, resetCts.Token).Forget();
+                ResetCameraAsync(resetPose, resetCts.Token).Forget();
             }
             else
             {
                 // 直接设置相机角度
-                currentPitch = resetPitch;
-                currentYaw = resetYaw;
-                currentDistance = resetDistance;
-                
-                targetPitch = resetPitch;
-                targetYaw = resetYaw;
-                targetDistance = resetDistance;
+                currentPose = resetPose;
+                targetPose = resetPose;
                 
                 // 重置速度
                 rotationVelocity = Vector2.zero;
@@ -373,23 +360,17 @@ namespace HybridToolkit.CameraController
         /// <summary>
         /// 异步归位相机
         /// </summary>
-        /// <param name="targetPitch">目标俯仰角（度）</param>
-        /// <param name="targetYaw">目标偏航角（度）</param>
-        /// <param name="targetDistance">目标距离</param>
+        /// <param name="targetPose">目标姿态（x=Pitch, y=Yaw, z=Distance）</param>
         /// <param name="cancellationToken">取消令牌</param>
-        private async UniTaskVoid ResetCameraAsync(float targetPitch,
-                                                   float targetYaw,
-                                                   float targetDistance,
+        private async UniTaskVoid ResetCameraAsync(Vector3 targetPose,
                                                    CancellationToken cancellationToken)
         {
-            this.targetPitch = targetPitch;
-            this.targetYaw = targetYaw;
-            this.targetDistance = targetDistance;
+            this.targetPose = targetPose;
             
             // 等待相机归位完成
-            while (!Mathf.Approximately(currentPitch, targetPitch) ||
-                   !Mathf.Approximately(currentYaw, targetYaw) ||
-                   !Mathf.Approximately(currentDistance, targetDistance))
+            while (!Mathf.Approximately(currentPose.x, targetPose.x) ||
+                   !Mathf.Approximately(currentPose.y, targetPose.y) ||
+                   !Mathf.Approximately(currentPose.z, targetPose.z))
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -408,13 +389,13 @@ namespace HybridToolkit.CameraController
         /// <param name="distance">距离</param>
         public void SetCameraAngles(float pitch, float yaw, float distance)
         {
-            currentPitch = Mathf.Clamp(pitch, settings.MinPitch, settings.MaxPitch);
-            currentYaw = yaw;
-            currentDistance = Mathf.Clamp(distance, settings.MinDistance, settings.MaxDistance);
+            currentPose = new Vector3(
+                Mathf.Clamp(pitch, settings.MinPitch, settings.MaxPitch),
+                yaw,
+                Mathf.Clamp(distance, settings.MinDistance, settings.MaxDistance)
+            );
             
-            targetPitch = currentPitch;
-            targetYaw = currentYaw;
-            targetDistance = currentDistance;
+            targetPose = currentPose;
             
             // 重置速度
             rotationVelocity = Vector2.zero;

@@ -30,12 +30,10 @@ namespace HybridToolkit.CameraController.Example
         [SerializeField] private UnityEngine.UI.Button customAngleButton;
         
         /// <summary>
-        /// 自定义角度参数
+        /// 自定义角度参数（x=Pitch, y=Yaw, z=Distance）
         /// </summary>
         [Header("自定义角度参数")]
-        [SerializeField] private float customPitch = 60f;
-        [SerializeField] private float customYaw = 45f;
-        [SerializeField] private float customDistance = 15f;
+        [SerializeField] private Vector3 customPose = new Vector3(60f, 45f, 15f);
         
         private void Start()
         {
@@ -81,7 +79,7 @@ namespace HybridToolkit.CameraController.Example
         {
             if (cameraController != null)
             {
-                cameraController.SetCameraAngles(customPitch, customYaw, customDistance);
+                cameraController.SetCameraAngles(customPose.x, customPose.y, customPose.z);
             }
         }
         
