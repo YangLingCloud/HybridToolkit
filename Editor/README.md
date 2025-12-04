@@ -1,14 +1,14 @@
-# MethodButton 编辑器工具
+# InspectorButton 编辑器工具
 
 ## 功能介绍
 
-MethodButton是一个Unity编辑器工具，允许在MonoBehaviour中任何方法上添加自定义特性，使其在Inspector面板中显示为可点击的按钮，并支持输入参数。
+InspectorButton是一个Unity编辑器工具，允许在MonoBehaviour中任何方法上添加自定义特性，使其在Inspector面板中显示为可点击的按钮，并支持输入参数。
 
 ## 使用方法
 
 ### 1. 添加特性
 
-在任何MonoBehaviour类的方法上添加`[MethodButton]`特性：
+在任何MonoBehaviour类的方法上添加`[InspectorButton]`特性：
 
 ```csharp
 using UnityEngine;
@@ -16,7 +16,7 @@ using HybridToolkit;
 
 public class MyScript : MonoBehaviour
 {
-    [MethodButton("执行方法")]
+    [InspectorButton("执行方法")]
     private void MyMethod(int count, float value, string message)
     {
         Debug.Log($"count: {count}, value: {value}, message: {message}");
@@ -26,7 +26,7 @@ public class MyScript : MonoBehaviour
 
 ### 2. 特性参数
 
-`MethodButton`特性支持以下参数：
+`InspectorButton`特性支持以下参数：
 
 | 参数名 | 类型 | 默认值 | 描述 |
 |--------|------|--------|------|
@@ -57,21 +57,21 @@ using HybridToolkit;
 public class Example : MonoBehaviour
 {
     // 无参数方法
-    [MethodButton("测试无参数方法", showInPlayMode = true, showInEditMode = true)]
+    [InspectorButton("测试无参数方法", showInPlayMode = true, showInEditMode = true)]
     private void TestNoParameters()
     {
         Debug.Log("调用了无参数方法");
     }
     
     // 基本参数方法
-    [MethodButton("测试基本参数")]
+    [InspectorButton("测试基本参数")]
     private void TestBasicParameters(int count, float value, bool flag)
     {
         Debug.Log($"count: {count}, value: {value}, flag: {flag}");
     }
     
     // Vector参数方法
-    [MethodButton("测试Vector3")]
+    [InspectorButton("测试Vector3")]
     private void TestVectorParameters(Vector3 position, Color color)
     {
         Debug.Log($"position: {position}, color: {color}");
@@ -88,7 +88,7 @@ public class Example : MonoBehaviour
 
 ## 技术实现
 
-- `MethodButtonAttribute`: 自定义特性，用于标记需要在Inspector中显示按钮的方法
-- `MethodButtonEditor`: 自定义编辑器，继承自`Editor`，用于在Inspector中绘制按钮和参数输入框
-- 利用反射获取所有带有`MethodButtonAttribute`特性的方法
+- `InspectorButtonAttribute`: 自定义特性，用于标记需要在Inspector中显示按钮的方法
+- `InspectorButtonEditor`: 自定义编辑器，继承自`Editor`，用于在Inspector中绘制按钮和参数输入框
+- 利用反射获取所有带有`InspectorButtonAttribute`特性的方法
 - 支持多种参数类型的输入控件绘制

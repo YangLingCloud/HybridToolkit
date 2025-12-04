@@ -4,10 +4,10 @@ using UnityEngine;
 namespace HybridToolkit
 {
     /// <summary>
-    /// 方法按钮特性，用于在Inspector中显示可点击的方法按钮
+    /// Inspector按钮特性，用于在Inspector中显示可点击的方法按钮
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-    public class MethodButtonAttribute : PropertyAttribute
+    public class InspectorButtonAttribute : PropertyAttribute
     {
         /// <summary>
         /// 按钮显示名称
@@ -25,12 +25,12 @@ namespace HybridToolkit
         public bool ShowInEditMode { get; private set; }
         
         /// <summary>
-        /// 方法按钮特性构造函数
+        /// Inspector按钮特性构造函数
         /// </summary>
         /// <param name="buttonName">按钮显示名称</param>
         /// <param name="showInPlayMode">是否在播放模式下显示</param>
         /// <param name="showInEditMode">是否在编辑模式下显示</param>
-        public MethodButtonAttribute(string buttonName = "", bool showInPlayMode = true, bool showInEditMode = true)
+        public InspectorButtonAttribute(string buttonName = "", bool showInPlayMode = true, bool showInEditMode = true)
         {
             ButtonName = buttonName;
             ShowInPlayMode = showInPlayMode;

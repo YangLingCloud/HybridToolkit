@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// 事件总线类，用于管理特定事件类型的订阅和发布
-/// </summary>
-/// <typeparam name="T">事件类型，必须实现IEvent接口</typeparam>
-public static class EventBus<T> where T : IEvent {
+namespace HybridToolkit.Events
+{
+    /// <summary>
+    /// 事件总线类，用于管理特定事件类型的订阅和发布
+    /// </summary>
+    /// <typeparam name="T">事件类型，必须实现IEvent接口</typeparam>
+    public static class EventBus<T> where T : IEvent {
     /// <summary>
     /// 存储事件绑定的哈希集合，确保每个绑定只被添加一次
     /// </summary>
@@ -49,4 +51,5 @@ public static class EventBus<T> where T : IEvent {
         Debug.Log($"Clearing {typeof(T).Name} bindings");
         bindings.Clear();
     }
+}
 }

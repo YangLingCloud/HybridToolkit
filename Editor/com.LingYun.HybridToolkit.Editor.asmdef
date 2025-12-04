@@ -3,7 +3,8 @@
     "rootNamespace": "HybridToolkit.Editor",
     "references": [
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
-        "GUID:fbe10999214d6b149a096d22eacfaf73"
+        "GUID:fbe10999214d6b149a096d22eacfaf73",
+        "GUID:6650098a52c822249ac0aaa4e57e314e"
     ],
     "includePlatforms": [
         "Editor"

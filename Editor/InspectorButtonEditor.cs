@@ -8,10 +8,10 @@ using HybridToolkit;
 namespace HybridToolkit.Editor
 {
     /// <summary>
-    /// 方法按钮编辑器，用于在Inspector中显示带有MethodButtonAttribute的方法按钮
+    /// Inspector按钮编辑器，用于在Inspector中显示带有InspectorButtonAttribute的方法按钮
     /// </summary>
     [CustomEditor(typeof(MonoBehaviour), true)]
-    public class MethodButtonEditor : UnityEditor.Editor
+    public class InspectorButtonEditor : UnityEditor.Editor
     {
         /// <summary>
         /// 存储参数值的字典
@@ -34,20 +34,20 @@ namespace HybridToolkit.Editor
             // 获取目标对象
             var target = serializedObject.targetObject;
             
-            // 获取所有带有MethodButtonAttribute的方法
-            var methods = GetMethodsWithAttribute<MethodButtonAttribute>();
+            // 获取所有带有InspectorButtonAttribute的方法
+            var methods = GetMethodsWithAttribute<InspectorButtonAttribute>();
             
             if (methods.Count > 0)
             {
                 // 添加分隔线
                 EditorGUILayout.Space();
-                EditorGUILayout.LabelField("方法按钮", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("Inspector按钮", EditorStyles.boldLabel);
                 EditorGUILayout.Space();
                 
                 // 绘制每个方法按钮
                 foreach (var method in methods)
                 {
-                    var attribute = method.GetCustomAttribute<MethodButtonAttribute>();
+                    var attribute = method.GetCustomAttribute<InspectorButtonAttribute>();
                     
                     // 检查是否应该显示此按钮
                     if (!ShouldShowButton(attribute))
@@ -142,7 +142,7 @@ namespace HybridToolkit.Editor
         /// <summary>
         /// 检查是否应该显示按钮
         /// </summary>
-        private bool ShouldShowButton(MethodButtonAttribute attribute)
+        private bool ShouldShowButton(InspectorButtonAttribute attribute)
         {
             bool isPlaying = Application.isPlaying;
             

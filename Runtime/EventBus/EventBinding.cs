@@ -1,10 +1,12 @@
 ﻿using System;
 
-/// <summary>
-/// 事件绑定接口，用于定义事件处理方法的访问器
-/// </summary>
-/// <typeparam name="T">事件类型，必须实现IEvent接口</typeparam>
-public interface IEventBinding<T> {
+namespace HybridToolkit.Events
+{
+    /// <summary>
+    /// 事件绑定接口，用于定义事件处理方法的访问器
+    /// </summary>
+    /// <typeparam name="T">事件类型，必须实现IEvent接口</typeparam>
+    public interface IEventBinding<T> {
     /// <summary>
     /// 带事件参数的事件处理方法
     /// </summary>
@@ -82,4 +84,5 @@ public class EventBinding<T> : IEventBinding<T> where T : IEvent {
     /// </summary>
     /// <param name="onEvent">带事件参数的事件处理方法</param>
     public void Remove(Action<T> onEvent) => this.onEvent -= onEvent;
+}
 }

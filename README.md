@@ -31,8 +31,14 @@
   - `PersistentSingletonMono<T>` - 场景切换时不会被销毁的持久化单例
   - `RegulatorSingletonMono<T>` - 通过初始化时间管理多个实例的调节型单例
 
-### 5. 编辑器工具
-- **MethodButton工具** - 在Inspector中为MonoBehaviour方法添加可点击按钮
+### 5. 自定义特性
+- **InspectorReadOnlyAttribute** - 使字段在Inspector面板中显示为只读
+  - 支持各种数据类型（包括基本类型、Vector、数组等）
+  - 运行时仍可通过代码修改字段值
+  - 通过InspectorReadOnlyDrawer实现绘制逻辑
+
+### 6. 编辑器工具
+- **InspectorButton工具** - 在Inspector中为MonoBehaviour方法添加可点击按钮
   - 支持在编辑模式和播放模式下显示按钮
   - 支持自定义按钮名称
   - 支持多种参数类型输入
@@ -45,7 +51,8 @@
 - **相机控制组件**：`Runtime/CameraController/README.md`
 - **事件总线系统**：`Runtime/EventBus/README.md`
 - **单例模式实现**：`Runtime/Singleton/README.md`
-- **MethodButton工具**：`Editor/README.md`
+- **自定义特性**：`Runtime/CustomAttribute/`
+- **编辑器工具**：`Editor/README.md`
 
 ## 安装说明
 
