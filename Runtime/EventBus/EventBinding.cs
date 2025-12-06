@@ -22,7 +22,7 @@ namespace HybridToolkit.Events
 /// 事件绑定实现类，用于管理事件处理方法的注册和移除
 /// </summary>
 /// <typeparam name="T">事件类型，必须实现IEvent接口</typeparam>
-public class EventBinding<T> : IEventBinding<T> where T : IEvent {
+public class EventBinding<T> : IEventBinding<T> where T :struct, IEvent {
     /// <summary>
     /// 带事件参数的事件处理方法
     /// </summary>

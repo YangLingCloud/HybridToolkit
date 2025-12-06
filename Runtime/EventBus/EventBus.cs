@@ -4,10 +4,18 @@ using UnityEngine;
 namespace HybridToolkit.Events
 {
     /// <summary>
+    /// 事件接口，所有事件类型都必须实现此接口
+    /// </summary>
+    public interface IEvent
+    {
+        
+    }
+    
+    /// <summary>
     /// 事件总线类，用于管理特定事件类型的订阅和发布
     /// </summary>
     /// <typeparam name="T">事件类型，必须实现IEvent接口</typeparam>
-    public static class EventBus<T> where T : IEvent {
+    public static class EventBus<T> where T :struct, IEvent {
     /// <summary>
     /// 存储事件绑定的哈希集合，确保每个绑定只被添加一次
     /// </summary>

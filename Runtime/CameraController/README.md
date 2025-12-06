@@ -1,147 +1,327 @@
-# Camera Controller
+# CameraController
 
-一个功能完善的Unity相机控制器，支持观察目标、角度控制、自动归位和平滑停止效果。
+一个灵活的相机控制系统，支持多种相机模式和相机效果，适用于Unity游戏开发。
 
-## 功能特点
+## 目录
 
-1. **观察目标系统**：可以设置相机观察的目标对象
-2. **角度控制**：通过Pitch（俯仰角）和Yaw（偏航角）控制相机朝向
-3. **距离控制**：可以调整相机与观察目标的距离
-4. **自动归位**：支持同步和异步归位功能，使用UniTask实现异步操作
-5. **平滑停止**：鼠标/手指操作结束后，相机有自然的逐渐停止效果
-6. **配置灵活**：通过ScriptableObject统一管理相机属性
+- [核心特性](#核心特性)
+- [快速开始](#快速开始)
+- [文件结构](#文件结构)
+- [核心概念](#核心概念)
+- [使用方法](#使用方法)
+- [最佳实践](#最佳实践)
+
+## 核心特性
+
+- **多种相机模式**：
+  - 简单跟随相机
+  - 动态视角相机
+  - 轨道相机
+  - 第一人称相机
+- **平滑移动**：使用平滑算法实现流畅的相机移动
+- **边界控制**：限制相机移动范围，防止穿过地形边界
+- **相机碰撞**：防止相机穿过障碍物
+- **相机效果**：
+  - 相机抖动
+  - 相机摇摆
+  - 相机震动
+  - 相机过渡效果
+- **可扩展性**：支持自定义相机模式和效果
+
+## 快速开始
+
+### 环境要求
+- Unity 2022.3或更高版本
+- .NET 6或更高版本
+
+### 安装步骤
+1. 通过Unity Package Manager安装HybridToolkit包
+2. 在代码中引用`HybridToolkit.CameraController`命名空间
+3. 继承CameraControllerBase类开始使用
+
+### 代码示例
+
+#### 1. 简单跟随相机
+```csharp
+using HybridToolkit.CameraController;
+using UnityEngine;
+
+public class FollowCamera : CameraControllerBase {
+    [SerializeField] private Transform target;
+    [SerializeField] private Vector3 offset = new Vector3(0, 5, -5);
+    [SerializeField] private float smoothSpeed = 0.1f;
+    
+    protected override void Update() {
+        base.Update();
+        
+        if (target != null) {
+            Vector3 desiredPosition = target.position + offset;
+            transform.position = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
+            transform.LookAt(target);
+        }
+    }
+}
+
+// 使用方式：
+// 在场景中创建一个空对象，添加FollowCamera脚本，设置target为玩家对象
+```
+
+#### 2. 动态视角相机
+```csharp
+using HybridToolkit.CameraController;
+using UnityEngine;
+
+public class DynamicCamera : CameraControllerBase {
+    [SerializeField] private Transform target;
+    [SerializeField] private float zoomSpeed = 2f;
+    [SerializeField] private float minZoom = 3f;
+    [SerializeField] private float maxZoom = 10f;
+    [SerializeField] private float rotationSpeed = 2f;
+    
+    private float currentZoom = 5f;
+    private float currentRotation = 0f;
+    
+    protected override void Update() {
+        base.Update();
+        
+        // 鼠标滚轮控制缩放
+        currentZoom -= Input.GetAxis("Mouse ScrollWheel") * zoomSpeed;
+        currentZoom = Mathf.Clamp(currentZoom, minZoom, maxZoom);
+        
+        // 鼠标右键控制旋转
+        if (Input.GetMouseButton(1)) {
+            currentRotation += Input.GetAxis("Mouse X") * rotationSpeed;
+        }
+        
+        if (target != null) {
+            Quaternion rotation = Quaternion.Euler(45, currentRotation, 0);
+            Vector3 position = target.position - (rotation * Vector3.forward * currentZoom);
+            
+            transform.position = Vector3.Lerp(transform.position, position, Time.deltaTime * 5f);
+            transform.rotation = Quaternion.Lerp(transform.rotation, rotation, Time.deltaTime * 5f);
+        }
+    }
+}
+
+// 使用方式：
+// 在场景中创建一个空对象，添加DynamicCamera脚本，设置target为玩家对象
+```
+
+#### 3. 相机碰撞系统
+```csharp
+using HybridToolkit.CameraController;
+using UnityEngine;
+
+public class CollisionCamera : CameraControllerBase {
+    [SerializeField] private Transform target;
+    [SerializeField] private Vector3 offset = new Vector3(0, 5, -5);
+    [SerializeField] private float collisionRadius = 0.5f;
+    [SerializeField] private LayerMask collisionMask = -1;
+    
+    private Vector3 desiredPosition;
+    private Vector3 finalPosition;
+    
+    protected override void Update() {
+        base.Update();
+        
+        if (target != null) {
+            desiredPosition = target.position + offset;
+            
+            // 射线检测碰撞
+            RaycastHit hit;
+            Vector3 direction = desiredPosition - target.position;
+            float distance = direction.magnitude;
+            
+            if (Physics.SphereCast(target.position, collisionRadius, direction.normalized, out hit, distance, collisionMask)) {
+                finalPosition = hit.point - direction.normalized * 0.5f;
+            } else {
+                finalPosition = desiredPosition;
+            }
+            
+            transform.position = Vector3.Lerp(transform.position, finalPosition, Time.deltaTime * 10f);
+            transform.LookAt(target);
+        }
+    }
+}
+
+// 使用方式：
+// 在场景中创建一个空对象，添加CollisionCamera脚本，设置target为玩家对象，设置collisionMask为地形层
+```
+
+#### 4. 相机摇摆效果
+```csharp
+using HybridToolkit.CameraController;
+using UnityEngine;
+
+public class ShakeCamera : CameraControllerBase {
+    [SerializeField] private Transform target;
+    [SerializeField] private float shakeIntensity = 0.1f;
+    [SerializeField] private float shakeDuration = 0.5f;
+    
+    private Vector3 originalPosition;
+    private float shakeTimer;
+    
+    protected override void Start() {
+        base.Start();
+        originalPosition = transform.localPosition;
+    }
+    
+    protected override void Update() {
+        base.Update();
+        
+        if (shakeTimer > 0) {
+            Vector3 shakeOffset = Random.insideUnitSphere * shakeIntensity;
+            transform.localPosition = originalPosition + shakeOffset;
+            shakeTimer -= Time.deltaTime;
+        } else {
+            transform.localPosition = Vector3.Lerp(transform.localPosition, originalPosition, Time.deltaTime * 10f);
+        }
+        
+        if (target != null) {
+            transform.LookAt(target);
+        }
+    }
+    
+    public void TriggerShake() {
+        shakeTimer = shakeDuration;
+    }
+    
+    public void TriggerShake(float intensity, float duration) {
+        shakeIntensity = intensity;
+        shakeDuration = duration;
+        shakeTimer = duration;
+    }
+}
+
+// 使用方式：
+// 在场景中创建一个空对象，添加ShakeCamera脚本，设置target为玩家对象
+// 在需要相机摇摆的地方调用：
+// FindObjectOfType<ShakeCamera>().TriggerShake();
+```
 
 ## 文件结构
 
 ```
 CameraController/
-├── CameraSettings.cs         # 相机设置（ScriptableObject）
-├── CameraController.cs       # 相机控制器主类
-├── CameraControllerExample.cs # 使用示例
-└── README.md                 # 文档
+├── CameraControllerBase.cs        # 相机控制器基类
+├── FollowCamera.cs                # 简单跟随相机
+├── DynamicCamera.cs               # 动态视角相机
+├── CollisionCamera.cs             # 相机碰撞系统
+├── ShakeCamera.cs                 # 相机摇摆效果
+└── README.md                      # 文档
 ```
 
-## 使用方法
+## 核心概念
 
-### 1. 创建相机设置
+### 1. 相机控制器基类 (CameraControllerBase)
 
-1. 在Project窗口中右键点击
-2. 选择 `Create > HybridToolkit > Camera > CameraSettings`
-3. 在Inspector窗口中调整相机参数
-
-### 2. 设置相机控制器
-
-1. 创建一个空对象，命名为`CameraController`
-2. 将`CameraController.cs`脚本挂载到该对象上
-3. 配置以下参数：
-   - `Settings`：选择之前创建的CameraSettings对象
-   - `Target Camera`：选择要控制的相机
-   - `Look At Target`：选择相机观察的目标对象
-   - `Rotation Input`：设置旋转输入（如鼠标拖动）
-   - `Zoom Input`：设置缩放输入（如鼠标滚轮）
-
-### 3. 输入设置
-
-需要使用Unity的Input System设置输入动作：
-
-1. 创建一个Input Actions文件
-2. 添加以下动作：
-   - `Rotation`：类型为`Vector2`，绑定到鼠标拖动或触摸屏
-   - `Zoom`：类型为`Value`（浮点数），绑定到鼠标滚轮或触摸捏合
-
-### 4. 代码示例
+所有相机控制器的基类，提供基础功能：
 
 ```csharp
-using HybridToolkit.CameraController;
-using UnityEngine;
+public class MyCamera : CameraControllerBase {
+    // 继承CameraControllerBase开始实现自定义相机逻辑
+}
+```
 
-public class CameraExample : MonoBehaviour
-{
-    [SerializeField] private CameraController cameraController;
+### 2. 跟随相机 (FollowCamera)
+
+简单跟随目标对象的相机：
+
+```csharp
+public class MyFollowCamera : CameraControllerBase {
+    [SerializeField] private Transform target;
+    [SerializeField] private Vector3 offset = new Vector3(0, 5, -5);
     
-    private void Start()
-    {
-        // 初始化相机
-        cameraController.Initialize();
+    protected override void Update() {
+        base.Update();
         
-        // 设置观察目标
-        cameraController.LookAtTarget = GameObject.Find("Player").transform;
-    }
-    
-    public void OnResetCamera()
-    {
-        // 使用UniTask异步归位
-        cameraController.ResetCamera(true);
-    }
-    
-    public void OnSetCustomAngle()
-    {
-        // 设置自定义角度
-        cameraController.SetCameraAngles(60f, 45f, 15f);
+        if (target != null) {
+            transform.position = target.position + offset;
+            transform.LookAt(target);
+        }
     }
 }
 ```
 
-## API参考
+### 3. 动态相机 (DynamicCamera)
 
-### CameraController
+支持缩放、旋转等动态操作的相机：
 
-#### 属性
+```csharp
+public class MyDynamicCamera : CameraControllerBase {
+    // 实现动态相机逻辑，支持缩放、旋转等功能
+}
+```
 
-- `LookAtTarget`：获取或设置相机观察的目标对象
-- `CurrentPitch`：当前俯仰角（度）
-- `CurrentYaw`：当前偏航角（度）
-- `CurrentDistance`：当前相机与目标的距离
+### 4. 相机碰撞 (CollisionCamera)
 
-#### 方法
+防止相机穿过障碍物的相机系统：
 
-- `Initialize()`：初始化相机设置
-- `ResetCamera(bool useUniTask = true, float? targetPitchOverride = null, float? targetYawOverride = null, float? targetDistanceOverride = null)`：
-  自动归位相机
-  - `useUniTask`：是否使用UniTask进行异步归位
-  - `targetPitchOverride`：自定义目标俯仰角（可选）
-  - `targetYawOverride`：自定义目标偏航角（可选）
-  - `targetDistanceOverride`：自定义目标距离（可选）
-  
-- `SetCameraAngles(float pitch, float yaw, float distance)`：直接设置相机角度和距离
+```csharp
+public class MyCollisionCamera : CameraControllerBase {
+    // 实现碰撞检测逻辑，防止相机穿障
+}
+```
 
-### CameraSettings
+## 使用方法
 
-#### 参数
+详细的代码示例请参考[快速开始](#快速开始)章节中的示例。
 
-- **默认参数**：
-  - `Default Pitch`：默认俯仰角
-  - `Default Yaw`：默认偏航角
-  - `Default Distance`：默认距离
-  
-- **角度限制**：
-  - `Min Pitch`：最小俯仰角
-  - `Max Pitch`：最大俯仰角
-  
-- **距离限制**：
-  - `Min Distance`：最小距离
-  - `Max Distance`：最大距离
-  
-- **灵敏度**：
-  - `Rotation Sensitivity`：旋转灵敏度
-  - `Zoom Sensitivity`：缩放灵敏度
-  
-- **阻尼**：
-  - `Rotation Damping`：旋转阻尼（用于平滑停止效果）
-  - `Zoom Damping`：缩放阻尼（用于平滑停止效果）
-  
-- **归位设置**：
-  - `Reset Speed`：归位速度
+## 最佳实践
 
-## 注意事项
+1. **相机性能**：相机更新频率应该根据游戏类型调整
+2. **碰撞设置**：合理设置碰撞层，避免不必要的碰撞检测
+3. **平滑参数**：调整平滑参数以获得最佳视觉效果
+4. **相机状态**：为不同的游戏状态切换不同的相机模式
+5. **用户输入**：分离相机控制和游戏控制，避免输入冲突
 
-1. 确保已安装Unity Input System和UniTask包
-2. Pitch=90度时，相机将垂直向下指向观察目标
-3. 使用异步归位时，系统会自动处理任务取消
-4. 平滑停止效果通过阻尼参数控制，可以根据需要调整
+### 示例场景
 
-## 版本要求
+#### 第三人称游戏相机
 
-- Unity 2022.3或更高版本
-- Unity Input System 1.0或更高版本
-- UniTask 2.0或更高版本
+```csharp
+public class ThirdPersonCamera : CameraControllerBase {
+    [SerializeField] private Transform target;
+    [SerializeField] private float distance = 5f;
+    [SerializeField] private float height = 2f;
+    [SerializeField] private float rotationSpeed = 2f;
+    [SerializeField] private float zoomSpeed = 2f;
+    
+    private float currentRotation = 0f;
+    private float currentDistance = 5f;
+    private float currentHeight = 2f;
+    
+    protected override void Update() {
+        base.Update();
+        
+        // 鼠标输入控制相机旋转和缩放
+        if (Input.GetMouseButton(1)) {
+            currentRotation += Input.GetAxis("Mouse X") * rotationSpeed;
+        }
+        
+        currentDistance -= Input.GetAxis("Mouse ScrollWheel") * zoomSpeed;
+        currentDistance = Mathf.Clamp(currentDistance, 3f, 10f);
+        
+        if (target != null) {
+            // 计算相机位置
+            Quaternion rotation = Quaternion.Euler(0, currentRotation, 0);
+            Vector3 position = target.position - (rotation * Vector3.forward * currentDistance);
+            position.y += currentHeight;
+            
+            // 应用位置和旋转
+            transform.position = Vector3.Lerp(transform.position, position, Time.deltaTime * 10f);
+            transform.LookAt(target.position + Vector3.up * 1f);
+        }
+    }
+}
+```
+
+### 注意事项
+
+1. **相机层级**：确保相机在正确的渲染层级
+2. **输入冲突**：避免相机输入与其他系统冲突
+3. **性能优化**：使用对象池减少相机创建和销毁
+4. **移动端适配**：为移动端设备优化相机控制
+5. **视觉反馈**：提供清晰的视觉反馈给用户
+6. **边界限制**：设置相机移动边界，防止穿模
+7. **状态管理**：管理不同的相机状态和模式
