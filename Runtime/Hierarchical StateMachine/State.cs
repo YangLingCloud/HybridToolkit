@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace HSM {
+namespace HybridToolkit.HierachicalStateMachine {
     /// <summary>
     /// 状态基类
     /// 定义了状态机中的状态行为和生命周期

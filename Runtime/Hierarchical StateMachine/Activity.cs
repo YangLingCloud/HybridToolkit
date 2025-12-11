@@ -2,7 +2,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace HSM {
+namespace HybridToolkit.HierachicalStateMachine {
     /// <summary>
     /// 活动模式枚举
     /// 定义了活动可能的状态

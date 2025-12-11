@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace HSM {
+namespace HybridToolkit.HierachicalStateMachine {
     /// <summary>
     /// 状态机构建器类
     /// 用于构建和连接状态机的各个部分

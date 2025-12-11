@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HSM {
+namespace HybridToolkit.HierachicalStateMachine {
     /// <summary>
     /// 顺序阶段类
     /// 实现了ISequence接口，用于顺序执行多个阶段步骤

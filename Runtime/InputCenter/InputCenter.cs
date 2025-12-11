@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using HybridToolkit.Events;
@@ -79,7 +80,7 @@ namespace HybridToolkit
                     // 触发相机缩放事件
                     float zoomDelta = scrollDelta * _zoomSensitivity;
                     _zoomEvent.delta = zoomDelta;
-                    EventBus<CameraZoomEvent>.Raise(_zoomEvent);
+                    EventPipeline<CameraZoomEvent>.Raise(_zoomEvent).Forget();
 
                     // 标记正在进行缩放操作
                     _isScaling = true;
@@ -165,7 +166,7 @@ namespace HybridToolkit
                     // 触发相机旋转事件
                     Vector2 rotationDelta = mouseDelta * _rotationSensitivity;
                     _rotateEvent.delta = rotationDelta;
-                    EventBus<CameraRotateEvent>.Raise(_rotateEvent);
+                    EventPipeline<CameraRotateEvent>.Raise(_rotateEvent).Forget();
                     // 标记正在进行旋转操作
                     _isRotating = true;
                 }
@@ -239,7 +240,7 @@ namespace HybridToolkit
                 {
                     Vector2 mousePosition = mouse.position.ReadValue();
                     _clickEvent.position = mousePosition;
-                    EventBus<CameraClickEvent>.Raise(_clickEvent);
+                    EventPipeline<CameraClickEvent>.Raise(_clickEvent).Forget();
                 }
 
                 // 重置旋转和缩放状态
@@ -321,7 +322,7 @@ namespace HybridToolkit
     /// <summary>
     /// 相机缩放事件结构体，包含缩放差值
     /// </summary>
-    public struct CameraZoomEvent : IEvent
+    public class  CameraZoomEvent : PipelineEvent
     {
         /// <summary>
         /// 缩放差值（正数放大，负数缩小）
@@ -332,7 +333,7 @@ namespace HybridToolkit
     /// <summary>
     /// 相机旋转事件结构体，包含旋转差值
     /// </summary>
-    public struct CameraRotateEvent : IEvent
+    public class  CameraRotateEvent : PipelineEvent
     {
         /// <summary>
         /// 旋转差值（X轴旋转相机上下，Y轴旋转相机左右）
@@ -343,7 +344,7 @@ namespace HybridToolkit
     /// <summary>
     /// 相机点击事件结构体，包含点击位置
     /// </summary>
-    public struct CameraClickEvent : IEvent
+    public class CameraClickEvent : PipelineEvent
     {
         /// <summary>
         /// 点击位置（屏幕坐标）

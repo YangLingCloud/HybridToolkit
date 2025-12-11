@@ -1,327 +1,239 @@
 # CameraController
 
-一个灵活的相机控制系统，支持多种相机模式和相机效果，适用于Unity游戏开发。
-
-## 目录
-
-- [核心特性](#核心特性)
-- [快速开始](#快速开始)
-- [文件结构](#文件结构)
-- [核心概念](#核心概念)
-- [使用方法](#使用方法)
-- [最佳实践](#最佳实践)
+一个基于策略模式的灵活3D相机控制系统，提供手动控制和自动对齐功能，适用于各种Unity项目。
 
 ## 核心特性
 
-- **多种相机模式**：
-  - 简单跟随相机
-  - 动态视角相机
-  - 轨道相机
-  - 第一人称相机
-- **平滑移动**：使用平滑算法实现流畅的相机移动
-- **边界控制**：限制相机移动范围，防止穿过地形边界
-- **相机碰撞**：防止相机穿过障碍物
-- **相机效果**：
-  - 相机抖动
-  - 相机摇摆
-  - 相机震动
-  - 相机过渡效果
-- **可扩展性**：支持自定义相机模式和效果
+- **策略模式设计**：通过ICameraMotionStrategy接口支持多种相机运动策略，易于扩展。
+- **手动控制**：ManualMotionStrategy提供基于输入的相机平移、旋转和缩放。
+- **自动对齐**：AutoAlignStrategy使用动画曲线实现平滑的自动归位功能。
+- **可配置设置**：CameraSettings ScriptableObject允许调整灵敏度、限制和默认姿态。
+- **平滑过渡**：内置插值和动量模型，提供自然的相机运动。
+- **零垃圾回收**：优化性能，减少内存分配。
+
+## 环境要求
+
+- Unity 2022.3 或更高版本
+- .NET 6 或更高版本
+
+## 安装步骤
+
+### 从Unity Package Manager安装（推荐）
+1. 打开Unity项目
+2. 进入 `Window` > `Package Manager`
+3. 点击左上角的 `+` 按钮，选择 `Add package from git URL...`
+4. 输入以下URL：
+   ```
+   https://github.com/YangLingCloud/HybridToolkit.git
+   ```
+5. 点击 `Add` 按钮开始安装
+
+### 手动安装
+1. 将CameraController文件夹复制到您的Unity项目中的Assets目录
+2. 确保项目中已安装必要的依赖包
+3. 在代码中引用相应的命名空间开始使用
 
 ## 快速开始
 
-### 环境要求
-- Unity 2022.3或更高版本
-- .NET 6或更高版本
+### 1. 基本设置
+首先，创建一个CameraSettings资产来配置相机参数：
 
-### 安装步骤
-1. 通过Unity Package Manager安装HybridToolkit包
-2. 在代码中引用`HybridToolkit.CameraController`命名空间
-3. 继承CameraControllerBase类开始使用
-
-### 代码示例
-
-#### 1. 简单跟随相机
 ```csharp
 using HybridToolkit.CameraController;
 using UnityEngine;
 
-public class FollowCamera : CameraControllerBase {
-    [SerializeField] private Transform target;
-    [SerializeField] private Vector3 offset = new Vector3(0, 5, -5);
-    [SerializeField] private float smoothSpeed = 0.1f;
-    
-    protected override void Update() {
-        base.Update();
-        
-        if (target != null) {
-            Vector3 desiredPosition = target.position + offset;
-            transform.position = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
-            transform.LookAt(target);
-        }
-    }
-}
-
-// 使用方式：
-// 在场景中创建一个空对象，添加FollowCamera脚本，设置target为玩家对象
+// 在Unity编辑器中，右键创建：Create > HybridToolkit > Camera Settings
+// 或通过代码创建：
+var settings = ScriptableObject.CreateInstance<CameraSettings>();
+settings.defaultPose = new CameraPose(Vector3.zero, Quaternion.identity, 5f);
+settings.sensitivity = new Vector2(2f, 2f);
+settings.limits = new CameraLimits();
 ```
 
-#### 2. 动态视角相机
+### 2. 使用CameraController
+将CameraController组件添加到相机对象，并分配设置：
+
 ```csharp
 using HybridToolkit.CameraController;
 using UnityEngine;
 
-public class DynamicCamera : CameraControllerBase {
-    [SerializeField] private Transform target;
-    [SerializeField] private float zoomSpeed = 2f;
-    [SerializeField] private float minZoom = 3f;
-    [SerializeField] private float maxZoom = 10f;
-    [SerializeField] private float rotationSpeed = 2f;
+public class CameraDemo : MonoBehaviour {
+    [SerializeField] private CameraSettings settings;
+    private CameraController _cameraController;
     
-    private float currentZoom = 5f;
-    private float currentRotation = 0f;
+    private void Start() {
+        _cameraController = GetComponent<CameraController>();
+        _cameraController.Initialize(settings);
+        
+        // 切换到手动控制模式
+        _cameraController.SwitchToManual();
+        
+        // 或切换到自动对齐模式
+        _cameraController.SwitchToAutoAlign();
+    }
     
-    protected override void Update() {
-        base.Update();
-        
-        // 鼠标滚轮控制缩放
-        currentZoom -= Input.GetAxis("Mouse ScrollWheel") * zoomSpeed;
-        currentZoom = Mathf.Clamp(currentZoom, minZoom, maxZoom);
-        
-        // 鼠标右键控制旋转
-        if (Input.GetMouseButton(1)) {
-            currentRotation += Input.GetAxis("Mouse X") * rotationSpeed;
-        }
-        
-        if (target != null) {
-            Quaternion rotation = Quaternion.Euler(45, currentRotation, 0);
-            Vector3 position = target.position - (rotation * Vector3.forward * currentZoom);
-            
-            transform.position = Vector3.Lerp(transform.position, position, Time.deltaTime * 5f);
-            transform.rotation = Quaternion.Lerp(transform.rotation, rotation, Time.deltaTime * 5f);
-        }
+    private void Update() {
+        // CameraController会自动更新当前策略
     }
 }
-
-// 使用方式：
-// 在场景中创建一个空对象，添加DynamicCamera脚本，设置target为玩家对象
 ```
 
-#### 3. 相机碰撞系统
+### 3. 手动控制示例
+ManualMotionStrategy支持鼠标和键盘输入：
+
 ```csharp
-using HybridToolkit.CameraController;
-using UnityEngine;
-
-public class CollisionCamera : CameraControllerBase {
-    [SerializeField] private Transform target;
-    [SerializeField] private Vector3 offset = new Vector3(0, 5, -5);
-    [SerializeField] private float collisionRadius = 0.5f;
-    [SerializeField] private LayerMask collisionMask = -1;
-    
-    private Vector3 desiredPosition;
-    private Vector3 finalPosition;
-    
-    protected override void Update() {
-        base.Update();
-        
-        if (target != null) {
-            desiredPosition = target.position + offset;
-            
-            // 射线检测碰撞
-            RaycastHit hit;
-            Vector3 direction = desiredPosition - target.position;
-            float distance = direction.magnitude;
-            
-            if (Physics.SphereCast(target.position, collisionRadius, direction.normalized, out hit, distance, collisionMask)) {
-                finalPosition = hit.point - direction.normalized * 0.5f;
-            } else {
-                finalPosition = desiredPosition;
-            }
-            
-            transform.position = Vector3.Lerp(transform.position, finalPosition, Time.deltaTime * 10f);
-            transform.LookAt(target);
-        }
-    }
-}
-
-// 使用方式：
-// 在场景中创建一个空对象，添加CollisionCamera脚本，设置target为玩家对象，设置collisionMask为地形层
+// CameraController使用ManualMotionStrategy时，可以通过输入控制相机：
+// - 鼠标右键拖拽：旋转相机
+// - WASD键：平移相机
+// - 鼠标滚轮：缩放相机
+// 输入映射可在CameraSettings中配置。
 ```
 
-#### 4. 相机摇摆效果
+### 4. 自动对齐示例
+AutoAlignStrategy可平滑地将相机移动到目标姿态：
+
 ```csharp
-using HybridToolkit.CameraController;
-using UnityEngine;
+// 设置自动对齐的目标姿态
+var targetPose = new CameraPose(new Vector3(0, 5, -10), Quaternion.identity, 5f);
+_cameraController.AutoAlignTo(targetPose, 2.0f); // 2秒内完成对齐
 
-public class ShakeCamera : CameraControllerBase {
-    [SerializeField] private Transform target;
-    [SerializeField] private float shakeIntensity = 0.1f;
-    [SerializeField] private float shakeDuration = 0.5f;
-    
-    private Vector3 originalPosition;
-    private float shakeTimer;
-    
-    protected override void Start() {
-        base.Start();
-        originalPosition = transform.localPosition;
-    }
-    
-    protected override void Update() {
-        base.Update();
-        
-        if (shakeTimer > 0) {
-            Vector3 shakeOffset = Random.insideUnitSphere * shakeIntensity;
-            transform.localPosition = originalPosition + shakeOffset;
-            shakeTimer -= Time.deltaTime;
-        } else {
-            transform.localPosition = Vector3.Lerp(transform.localPosition, originalPosition, Time.deltaTime * 10f);
-        }
-        
-        if (target != null) {
-            transform.LookAt(target);
-        }
-    }
-    
-    public void TriggerShake() {
-        shakeTimer = shakeDuration;
-    }
-    
-    public void TriggerShake(float intensity, float duration) {
-        shakeIntensity = intensity;
-        shakeDuration = duration;
-        shakeTimer = duration;
-    }
+// 检查是否对齐完成
+if (_cameraController.IsAutoAlignFinished) {
+    Debug.Log("相机已对齐到目标位置");
 }
-
-// 使用方式：
-// 在场景中创建一个空对象，添加ShakeCamera脚本，设置target为玩家对象
-// 在需要相机摇摆的地方调用：
-// FindObjectOfType<ShakeCamera>().TriggerShake();
 ```
 
 ## 文件结构
 
 ```
 CameraController/
-├── CameraControllerBase.cs        # 相机控制器基类
-├── FollowCamera.cs                # 简单跟随相机
-├── DynamicCamera.cs               # 动态视角相机
-├── CollisionCamera.cs             # 相机碰撞系统
-├── ShakeCamera.cs                 # 相机摇摆效果
-└── README.md                      # 文档
+├── CameraController.cs          # 相机控制器主类，管理策略切换和更新
+├── CameraSettings.cs            # ScriptableObject配置资产，包含相机参数
+├── ICameraMotionStrategy.cs     # 相机运动策略接口
+├── ManualMotionStrategy.cs      # 手动控制策略实现
+├── AutoAlignStrategy.cs         # 自动对齐策略实现
+└── README.md                    # 文档
 ```
 
 ## 核心概念
 
-### 1. 相机控制器基类 (CameraControllerBase)
-
-所有相机控制器的基类，提供基础功能：
+### 1. 相机控制器 (CameraController)
+相机系统的核心管理器，负责初始化设置、策略切换和每帧更新：
 
 ```csharp
-public class MyCamera : CameraControllerBase {
-    // 继承CameraControllerBase开始实现自定义相机逻辑
+// 初始化相机控制器
+_cameraController.Initialize(settings);
+
+// 切换到手动控制模式
+_cameraController.SwitchToManual();
+
+// 切换到自动对齐模式
+_cameraController.SwitchToAutoAlign();
+
+// 启动自动对齐到目标姿态
+_cameraController.AutoAlignTo(targetPose, duration);
+```
+
+### 2. 相机设置 (CameraSettings)
+可配置的ScriptableObject资产，包含所有相机参数：
+- **默认姿态** (defaultPose): 相机的初始位置、旋转和缩放
+- **灵敏度** (sensitivity): 手动控制时的平移和旋转灵敏度
+- **限制** (limits): 相机移动的范围限制
+- **自动归位** (autoReturn): 自动对齐的相关参数
+
+### 3. 相机运动策略接口 (ICameraMotionStrategy)
+所有相机运动策略必须实现的接口：
+```csharp
+public interface ICameraMotionStrategy {
+    CameraPose CalculateNextPose(CameraPose currentPose, CameraSettings settings, float deltaTime);
+    bool IsFinished { get; }
 }
 ```
 
-### 2. 跟随相机 (FollowCamera)
+### 4. 手动控制策略 (ManualMotionStrategy)
+基于用户输入（鼠标、键盘）的相机控制：
+- **平移**: WASD键或鼠标中键拖拽
+- **旋转**: 鼠标右键拖拽
+- **缩放**: 鼠标滚轮
 
-简单跟随目标对象的相机：
-
-```csharp
-public class MyFollowCamera : CameraControllerBase {
-    [SerializeField] private Transform target;
-    [SerializeField] private Vector3 offset = new Vector3(0, 5, -5);
-    
-    protected override void Update() {
-        base.Update();
-        
-        if (target != null) {
-            transform.position = target.position + offset;
-            transform.LookAt(target);
-        }
-    }
-}
-```
-
-### 3. 动态相机 (DynamicCamera)
-
-支持缩放、旋转等动态操作的相机：
-
-```csharp
-public class MyDynamicCamera : CameraControllerBase {
-    // 实现动态相机逻辑，支持缩放、旋转等功能
-}
-```
-
-### 4. 相机碰撞 (CollisionCamera)
-
-防止相机穿过障碍物的相机系统：
-
-```csharp
-public class MyCollisionCamera : CameraControllerBase {
-    // 实现碰撞检测逻辑，防止相机穿障
-}
-```
+### 5. 自动对齐策略 (AutoAlignStrategy)
+使用动画曲线平滑地将相机移动到目标姿态，支持自定义持续时间和缓动曲线。
 
 ## 使用方法
 
-详细的代码示例请参考[快速开始](#快速开始)章节中的示例。
+### 1. 创建和配置CameraSettings
+在Unity编辑器中创建CameraSettings资产：
+1. 右键点击Project窗口
+2. 选择 `Create > HybridToolkit > Camera Settings`
+3. 调整参数，如默认姿态、灵敏度等
 
-## 最佳实践
-
-1. **相机性能**：相机更新频率应该根据游戏类型调整
-2. **碰撞设置**：合理设置碰撞层，避免不必要的碰撞检测
-3. **平滑参数**：调整平滑参数以获得最佳视觉效果
-4. **相机状态**：为不同的游戏状态切换不同的相机模式
-5. **用户输入**：分离相机控制和游戏控制，避免输入冲突
-
-### 示例场景
-
-#### 第三人称游戏相机
+### 2. 设置相机控制器
+将CameraController组件添加到相机GameObject，并在脚本中初始化：
 
 ```csharp
-public class ThirdPersonCamera : CameraControllerBase {
-    [SerializeField] private Transform target;
-    [SerializeField] private float distance = 5f;
-    [SerializeField] private float height = 2f;
-    [SerializeField] private float rotationSpeed = 2f;
-    [SerializeField] private float zoomSpeed = 2f;
+using HybridToolkit.CameraController;
+using UnityEngine;
+
+public class CameraSetup : MonoBehaviour {
+    [SerializeField] private CameraSettings settings;
     
-    private float currentRotation = 0f;
-    private float currentDistance = 5f;
-    private float currentHeight = 2f;
-    
-    protected override void Update() {
-        base.Update();
+    private void Start() {
+        var cameraController = GetComponent<CameraController>();
+        cameraController.Initialize(settings);
         
-        // 鼠标输入控制相机旋转和缩放
-        if (Input.GetMouseButton(1)) {
-            currentRotation += Input.GetAxis("Mouse X") * rotationSpeed;
-        }
-        
-        currentDistance -= Input.GetAxis("Mouse ScrollWheel") * zoomSpeed;
-        currentDistance = Mathf.Clamp(currentDistance, 3f, 10f);
-        
-        if (target != null) {
-            // 计算相机位置
-            Quaternion rotation = Quaternion.Euler(0, currentRotation, 0);
-            Vector3 position = target.position - (rotation * Vector3.forward * currentDistance);
-            position.y += currentHeight;
-            
-            // 应用位置和旋转
-            transform.position = Vector3.Lerp(transform.position, position, Time.deltaTime * 10f);
-            transform.LookAt(target.position + Vector3.up * 1f);
-        }
+        // 默认使用手动控制
+        cameraController.SwitchToManual();
     }
 }
 ```
 
-### 注意事项
+### 3. 控制模式切换
+根据游戏状态切换相机模式：
 
-1. **相机层级**：确保相机在正确的渲染层级
-2. **输入冲突**：避免相机输入与其他系统冲突
-3. **性能优化**：使用对象池减少相机创建和销毁
-4. **移动端适配**：为移动端设备优化相机控制
-5. **视觉反馈**：提供清晰的视觉反馈给用户
-6. **边界限制**：设置相机移动边界，防止穿模
-7. **状态管理**：管理不同的相机状态和模式
+```csharp
+// 当玩家需要控制相机时
+_cameraController.SwitchToManual();
+
+// 当需要相机自动移动到某个位置时
+_cameraController.SwitchToAutoAlign();
+_cameraController.AutoAlignTo(targetPose, 1.5f);
+
+// 检查自动对齐是否完成
+if (_cameraController.IsAutoAlignFinished) {
+    // 对齐完成后的逻辑
+}
+```
+
+### 4. 扩展自定义策略
+实现ICameraMotionStrategy接口创建新的相机运动策略：
+
+```csharp
+using HybridToolkit.CameraController;
+using UnityEngine;
+
+public class CustomMotionStrategy : ICameraMotionStrategy {
+    public bool IsFinished => false; // 根据实际情况返回
+    
+    public CameraPose CalculateNextPose(CameraPose currentPose, CameraSettings settings, float deltaTime) {
+        // 实现自定义运动逻辑
+        var newPosition = currentPose.position + Vector3.forward * deltaTime;
+        return new CameraPose(newPosition, currentPose.rotation, currentPose.zoom);
+    }
+}
+```
+
+## 最佳实践
+
+1. **性能优化**: CameraController使用值类型和对象池减少垃圾回收，适合高频更新。
+2. **输入处理**: 将相机输入与游戏输入分离，避免冲突。
+3. **平滑过渡**: 使用AutoAlignStrategy进行场景切换或过场动画中的相机移动。
+4. **参数调优**: 在CameraSettings中调整灵敏度和限制，以适应不同游戏类型。
+5. **移动端适配**: 为触摸屏设备调整输入映射和灵敏度。
+6. **调试辅助**: 使用CameraSettings的调试选项可视化相机边界和运动轨迹。
+
+## 注意事项
+
+- 确保相机GameObject有适当的碰撞体（如果需要碰撞检测）。
+- 在VR或AR项目中，可能需要调整输入处理方式。
+- 相机控制器依赖于Unity的Input System，确保正确配置输入映射。
+- 自动对齐过程中，避免频繁切换策略，以免造成运动不连贯。

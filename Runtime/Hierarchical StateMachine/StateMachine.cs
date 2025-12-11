@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace HSM {
+namespace HybridToolkit.HierachicalStateMachine {
     /// <summary>
     /// 层次状态机类
     /// 管理状态树和状态转换

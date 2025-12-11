@@ -26,21 +26,24 @@
 - 灵活的状态机构建器API
 
 ### 相机控制组件
-实现了灵活的3D相机控制系统：
-- 支持自由旋转、缩放和平移
-- 提供平滑过渡和自动归位功能
-- 可配置的相机参数和限制
-- 支持输入系统集成
-- 优化的动量模型，提供更自然的惯性效果
-- 零垃圾回收设计，减少内存分配
+实现了基于策略模式的灵活3D相机控制系统：
+- **策略模式设计**：通过ICameraMotionStrategy接口支持可扩展的运动策略
+- **手动控制策略**：ManualMotionStrategy提供自由旋转、缩放和平移控制
+- **自动对齐策略**：AutoAlignStrategy实现基于曲线的平滑自动归位功能
+- **可配置相机参数**：CameraSettings ScriptableObject提供灵敏度、限制等配置
+- **输入系统集成**：支持Unity Input System和传统输入
+- **平滑过渡**：支持手动与自动模式之间的平滑切换
+- **零垃圾回收设计**：减少运行时内存分配
 
-### 事件总线系统
-轻量级的组件间通信机制：
-- 类型安全的事件定义
-- 支持事件订阅和触发
-- 线程安全的事件处理
-- 灵活的事件绑定管理
-- 优化的事件对象管理，减少GC开销
+### 事件管线系统 (Event Pipeline)
+基于UniTask的高性能异步事件管线系统：
+- 异步管线，深度集成UniTask，支持async/await
+- 零GC设计，核心管线无堆内存分配
+- 优先级排序，支持High、Normal、Low等精细控制
+- 管线控制，支持事件拦截和中断
+- 阶段锁定，基于优先级的自动只读锁定机制
+- 混合注册，支持同步和异步方法的混合订阅
+- 安全稳健，内置Unity对象生命周期检查
 
 ### 设计模式实现
 - **单例模式**
@@ -118,54 +121,48 @@ public class PlayerController : MonoBehaviour {
 
 #### 使用事件通信
 ```csharp
-using HybridToolkit.EventBus;
+    /// <summary>
+    /// 相机旋转事件结构体，包含旋转差值
+    /// </summary>
+    public class  CameraRotateEvent : PipelineEvent
+    {
+        /// <summary>
+        /// 旋转差值（X轴旋转相机上下，Y轴旋转相机左右）
+        /// </summary>
+        public Vector2 delta;
+    }
 
-// 定义事件
-public struct PlayerHealthEvent : IEvent {
-    public int currentHealth;
-    public int maxHealth;
-}
+    private void OnEnable()
+    {
+        EventPipeline<CameraRotateEvent>.Subscribe(OnCameraRotate);
+    }
 
-// 订阅事件
-var binding = new EventBinding<PlayerHealthEvent>();
-binding.OnEvent += OnPlayerHealthChanged;
-EventBus<PlayerHealthEvent>.Register(binding);
+    private void OnDisable()
+    {
+        EventPipeline<CameraRotateEvent>.Unsubscribe(OnCameraRotate);
+    }
 
-// 发布事件
-EventBus<PlayerHealthEvent>.Raise(new PlayerHealthEvent { 
-    currentHealth = 80, 
-    maxHealth = 100 
-});
-
-// 取消订阅
-binding.OnEvent -= OnPlayerHealthChanged;
-EventBus<PlayerHealthEvent>.Unregister(binding);
+ 	private void OnCameraRotate(CameraRotateEvent evt){}
 ```
 
 #### 使用相机控制
 ```csharp
-using HybridToolkit.CameraController;
-
-public class CameraManager : MonoBehaviour {
-    private CameraController _cameraController;
-    
-    private void Start() {
-        _cameraController = GetComponent<CameraController>();
-        _cameraController.FocusOnTarget(playerTransform);
-    }
-    
-    private void Update() {
-        if (Input.GetMouseButtonDown(0)) {
-            _cameraController.SmoothRotate(45f, 0.5f);
+        private void Awake()
+        {
+            currentPose = new CameraPose(Settings.DefaultPose);
+            _lastInputTime = Time.time;
+            
+            // 默认使用手动策略
+            _activeStrategy = new ManualMotionStrategy(Settings);
+            
+            UpdateTransform();
         }
-    }
-}
 ```
 
 详细的使用示例请参考各个模块目录下的README文件：
 - **状态管理系统**：`Runtime/Hierarchical StateMachine/README.md`
 - **相机控制组件**：`Runtime/CameraController/README.md`
-- **事件总线系统**：`Runtime/EventBus/README.md`
+- **事件管线系统**：`Runtime/EventPipeline/README.md`
 - **单例模式实现**：`Runtime/Singleton/README.md`
 - **自定义特性**：`Runtime/CustomAttribute/README.md`
 - **编辑器工具**：`Editor/README.md`
@@ -176,8 +173,8 @@ public class CameraManager : MonoBehaviour {
 | 组件名称 | 描述 | 路径 | 特性 |
 |---------|------|------|------|
 | **分层状态机** | 复杂游戏逻辑状态管理 | `Runtime/Hierarchical StateMachine/` | 状态嵌套、序列控制、阶段管理 |
-| **相机控制器** | 3D相机控制和观察系统 | `Runtime/CameraController/` | 平滑过渡、动量模型、输入集成 |
-| **事件总线** | 组件间通信机制 | `Runtime/EventBus/` | 类型安全、线程安全、零GC |
+| **相机控制器** | 基于策略模式的灵活3D相机控制系统 | `Runtime/CameraController/` | 策略模式设计、手动控制、自动对齐、平滑过渡、输入集成 |
+| **事件管线** | 高性能异步事件管线系统 | `Runtime/EventPipeline/` | 异步管线、零GC、优先级排序、阶段锁定 |
 | **单例模式** | 多种单例模式实现 | `Runtime/Singleton/` | 持久化、调节型、泛型支持 |
 | **自定义特性** | Inspector增强工具 | `Runtime/CustomAttribute/` | 只读显示、按钮工具 |
 | **编辑器工具** | Inspector按钮等工具 | `Editor/` | 运行时支持、参数面板 |
@@ -190,7 +187,7 @@ Assets/HybridToolkit/
 ├── Runtime/                    # 运行时组件
 │   ├── Hierarchical StateMachine/  # 状态机系统
 │   ├── CameraController/           # 相机控制
-│   ├── EventBus/                  # 事件总线
+│   ├── EventPipeline/             # 事件管线系统
 │   ├── Singleton/                 # 单例模式
 │   ├── CustomAttribute/           # 自定义特性
 │   ├── InputCenter/               # 输入中心
@@ -219,8 +216,8 @@ Assets/HybridToolkit/
 // 状态机相关
 using HybridToolkit.HierarchicalStateMachine;
 
-// 事件总线相关
-using HybridToolkit.EventBus;
+// 事件管线相关
+using HybridToolkit.Events;
 
 // 相机控制相关
 using HybridToolkit.CameraController;
@@ -244,12 +241,15 @@ using HybridToolkit.InputCenter;
 - `Sequence` - 状态序列
 - `TransitionSequencer` - 转换序列器
 
-#### 事件总线
-- `EventBus<T>` - 泛型事件总线
-- `EventBinding<T>` - 事件绑定类
-- `EventBusUtil` - 事件总线工具类
+#### 事件管线
+- `EventPipeline<T>` - 泛型事件管线主类
+- `PipelineEvent` - 事件基类
+- `EventPriority` - 事件优先级枚举 (High, Normal, Low)
 
 #### 相机控制
+- `ICameraMotionStrategy` - 相机运动策略接口
+- `ManualMotionStrategy` - 手动控制策略
+- `AutoAlignStrategy` - 自动对齐策略
 - `CameraController` - 相机控制器主类
 - `CameraSettings` - 相机设置ScriptableObject
 
@@ -310,9 +310,6 @@ private void OnDestroy() {
 }
 ```
 
-### Q: 事件总线支持异步事件处理吗？
-A: 目前版本不支持异步事件处理，所有事件处理方法都应该是同步的。考虑在事件处理器中启动异步任务。
-
 ### Q: 相机控制器支持触摸屏操作吗？
 A: 支持，相机控制器使用Unity Input System，可以配置触摸屏输入。确保项目中启用了Input System包。
 
@@ -341,13 +338,9 @@ var machine = builder.Build();
 
 ## 作者
 
-- **YangLingYun** - *初始开发* - [GitHub](https://github.com/YangLingCloud)
+- **YangLingYun**  - [GitHub](https://github.com/YangLingCloud)
 
 ## 受启发于
-
-### EventBus
-直接引用自该仓库
-- https://github.com/adammyhre/Unity-Event-Bus
 
 ### Hierarchical State Machine
 直接引用自该仓库和视频

@@ -1,233 +1,213 @@
+using System;
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 using System.Threading;
-using HybridToolkit;
-using HybridToolkit.Events; // 假设你的 EventBus 命名空间
+using HybridToolkit.Events; 
 using UnityEngine.Serialization;
 
 namespace HybridToolkit.CameraController
 {
+    [Serializable]
+    public struct CameraPose
+    {
+        public float Pitch;    // X
+        public float Yaw;      // Y
+        public float Distance; // Z
+
+        public CameraPose(float pitch, float yaw, float distance)
+        {
+            Pitch = pitch;
+            Yaw = yaw;
+            Distance = distance;
+        }
+
+        public CameraPose(Vector3 v) : this(v.x, v.y, v.z) { }
+
+        public Vector3 ToVector3() => new Vector3(Pitch, Yaw, Distance);
+
+        /// <summary>
+        /// 自定义插值：支持旋转和距离使用不同的进度 t
+        /// </summary>
+        public static CameraPose Lerp(CameraPose from, CameraPose to, float tRot, float tZoom)
+        {
+            return new CameraPose(
+                Mathf.LerpUnclamped(from.Pitch, to.Pitch, tRot),
+                Mathf.LerpAngle(from.Yaw, to.Yaw, tRot), // 使用 LerpAngle 处理 360 度问题
+                Mathf.LerpUnclamped(from.Distance, to.Distance, tZoom)
+            );
+        }
+        
+        // 如果你需要标准 Lerp，也可以保留这个重载
+        public static CameraPose Lerp(CameraPose from, CameraPose to, float t)
+        {
+            return Lerp(from, to, t, t);
+        }
+    }
+    
     public class CameraController : MonoBehaviour
     {
-        [Header("Target Settings")]
         public Transform LookAtTarget;
         public CameraSettings Settings;
-
-        // 核心状态: X=Pitch, Y=Yaw, Z=Distance
-        [FormerlySerializedAs("_currentState")]
-        [SerializeField] 
-        [InspectorReadOnly] // 假设你有这个Attribute，没有的话用普通的 [SerializeField]
-        private Vector3 _currentPose;
-
-        [SerializeField] 
-        [InspectorReadOnly]
-        private Vector3 _velocity; 
-
-        private EventBinding<CameraRotateEvent> rotationEventBinding;
-        private EventBinding<CameraZoomEvent> zoomEventBinding;
-
-        private CancellationTokenSource _cts;
         
-        [SerializeField] 
-        [InspectorReadOnly]
-        private bool _isAutoMoving = false; 
+        [SerializeField,InspectorReadOnly]
+        private CameraPose currentPose;
+        
+        // ★ 核心：持有当前的算法 ★
+        private ICameraMotionStrategy _activeStrategy;
 
-        [SerializeField] 
-        [InspectorReadOnly]
-        float _autoMoveTime = 0f;
+        // 状态监控变量
+        [SerializeField,InspectorReadOnly]
+        private float _lastInputTime;
+        private Vector2 _currentFrameRotateInput; // 缓存当前帧的输入
+        private float _currentFrameZoomInput;
+
+        private ManualMotionStrategy _manualStrategy;
+        private AutoAlignMotionStrategy _autoAlignStrategy;
         
         private void Awake()
         {
-            if (Settings == null)
-            {
-                Debug.LogError("CameraSettings is missing!");
-                return;
-            }
-
-            _currentPose = Settings.DefaultPose;
-            UpdateCameraTransform();
-
-            rotationEventBinding = new EventBinding<CameraRotateEvent>(OnCameraRotate);
-            zoomEventBinding = new EventBinding<CameraZoomEvent>(OnCameraZoom);
+            currentPose = new CameraPose(Settings.DefaultPose);
+            _lastInputTime = Time.time;
+            
+            _manualStrategy = new ManualMotionStrategy(Settings);
+            _autoAlignStrategy = new AutoAlignMotionStrategy(Settings);
+            
+            UpdateTransform();
         }
 
         private void OnEnable()
         {
-            EventBus<CameraRotateEvent>.Register(rotationEventBinding);
-            EventBus<CameraZoomEvent>.Register(zoomEventBinding);
+            EventPipeline<CameraRotateEvent>.Subscribe(OnCameraRotate);
+            EventPipeline<CameraZoomEvent>.Subscribe(OnCameraZoom);
         }
 
         private void OnDisable()
         {
-            EventBus<CameraRotateEvent>.Deregister(rotationEventBinding);
-            EventBus<CameraZoomEvent>.Deregister(zoomEventBinding);
-            CancelAutoMove();
+            EventPipeline<CameraRotateEvent>.Unsubscribe(OnCameraRotate);
+            EventPipeline<CameraZoomEvent>.Unsubscribe(OnCameraZoom);
         }
 
         private void Update()
         {
-            // 自动归位时，跳过物理计算
-            if (_isAutoMoving) return;
+            float dt = Time.deltaTime;
 
-            // 1. 应用物理动量逻辑 (保持原样)
-            if (_velocity.sqrMagnitude > 0.0001f)
+            // ========================================================
+            // ★ 上层逻辑：决定使用哪个策略 (The Decision Maker) ★
+            // ========================================================
+
+            // 1. 检查是否发生了输入
+            bool hasInput = _currentFrameRotateInput.sqrMagnitude > 0.001f || Mathf.Abs(_currentFrameZoomInput) > 0.001f;
+
+            if (hasInput)
             {
-                _currentPose += _velocity * Time.deltaTime;
-                _velocity = Vector3.Lerp(_velocity, Vector3.zero, Settings.Damping * Time.deltaTime);
+                _lastInputTime = Time.time;
                 
-                // 当速度极小时直接归零，节省计算
-                if (_velocity.sqrMagnitude < 0.0001f) _velocity = Vector3.zero;
+                // 如果当前不是手动模式，立刻切换回手动模式 (打断动画)
+                if (_activeStrategy != _manualStrategy)
+                {
+                    SwitchToManual();
+                }
+            }
+            // 2. 检查是否需要触发自动归位
+            else if (Settings.EnableAutoReset)
+            {
+                bool isTimeout = Time.time - _lastInputTime > Settings.AutoMoveTimeInterval;
+                bool isAtTarget = Vector3.Distance(currentPose.ToVector3(), Settings.DefaultPose) < 0.01f;
+                bool isAlreadyAuto = _activeStrategy is AutoAlignMotionStrategy;
 
-                ClampState();
-                UpdateCameraTransform();
+                // 只有在超时、不在目标点、且还没开始自动归位时，才切换
+                if (isTimeout && !isAtTarget && _activeStrategy != _autoAlignStrategy)
+                {
+                    SwitchToAuto(currentPose, new CameraPose(Settings.DefaultPose));
+                }
             }
             
-            if(Time.time >= _autoMoveTime && _currentPose!=Settings.DefaultPose)
+            // 自动归位结束后，切回手动待机（省一点计算，逻辑也更干净）
+            if (_activeStrategy == _autoAlignStrategy && _autoAlignStrategy.IsFinished)
             {
-                SetRotationToTarget(Settings.DefaultPose);
+                SwitchToManual();
             }
+
+            // ========================================================
+            // ★ 下层执行：调用当前策略计算 (The Executor) ★
+            // ========================================================
+            
+            currentPose = _activeStrategy.CalculateNextPose(
+                currentPose, 
+                _currentFrameRotateInput, 
+                _currentFrameZoomInput, 
+                dt
+            );
+
+            // 清理当前帧输入缓存
+            _currentFrameRotateInput = Vector2.zero;
+            _currentFrameZoomInput = 0f;
+
+            // 限制并应用
+            ClampAndApply();
         }
 
+        private void SwitchToManual()
+        {
+            _manualStrategy.Reset(); // 重置速度
+            _activeStrategy = _manualStrategy;
+        }
+
+        private void SwitchToAuto(CameraPose start, CameraPose target)
+        {
+            _autoAlignStrategy.Reset(start, target); // 重置计时器和目标
+            _activeStrategy = _autoAlignStrategy;
+        }
         // ================== Event Handlers ==================
 
         private void OnCameraRotate(CameraRotateEvent evt)
         {
-            CancelAutoMove(); // 打断动画
-            float targetYawVel = evt.delta.x * Settings.RotateSensitivity;
-            float targetPitchVel = -evt.delta.y * Settings.RotateSensitivity;
-            _velocity.y += targetYawVel; 
-            _velocity.x += targetPitchVel;
-            
-            _autoMoveTime =Time.time+ Settings.AutoMoveTimeInterval;
+            // 在真正的策略模式中，Controller 负责收集输入，而不是直接分发给 Strategy
+            float yaw = evt.delta.x * Settings.RotateSensitivity;
+            float pitch = -evt.delta.y * Settings.RotateSensitivity;
+            _currentFrameRotateInput += new Vector2(yaw, pitch);
         }
 
         private void OnCameraZoom(CameraZoomEvent evt)
         {
-            CancelAutoMove(); // 打断动画
-            float targetZoomVel = -evt.delta * Settings.ZoomSensitivity;
-            _velocity.z += targetZoomVel;
-            
-            _autoMoveTime =Time.time+ Settings.AutoMoveTimeInterval;
+            float zoom = -evt.delta * Settings.ZoomSensitivity;
+            _currentFrameZoomInput += zoom;
         }
         
-        // ================== Public API ==================
-
-        public void SetRotationToTarget(Vector3 targetRotation, bool IsHard = false)
+        public void MoveToTarget(Vector3 target, bool immediate)
         {
-            CancelAutoMove();
-
-            if (IsHard)
-            {
-                _currentPose = targetRotation;
-                _velocity = Vector3.zero;
-                ClampState();
-                UpdateCameraTransform();
-            }
-            else
-            {
-                // 启动基于曲线的异步移动
-                MoveToTargetAsync(targetRotation).Forget();
-            }
+             if (immediate)
+             {
+                 currentPose = new CameraPose(target);
+                 SwitchToManual();
+                 _lastInputTime = Time.time; // 重置计时
+             }
+             else
+             {
+                 SwitchToAuto(currentPose, new CameraPose(target));
+             }
         }
 
-        // ================== Logic Core (Modified) ==================
-
-        private async UniTaskVoid MoveToTargetAsync(Vector3 targetPose)
+        private void ClampAndApply()
         {
-            _isAutoMoving = true;
-            _velocity = Vector3.zero; 
-
-            // 记录起始点
-            Vector3 startPose = _currentPose;
-            float duration = Settings.AutoMoveDuration;
-            float timer = 0f;
-
-            _cts = new CancellationTokenSource();
-            var token = _cts.Token;
-
-            try
-            {
-                // 如果持续时间太短，视为硬切
-                if (duration <= 0.01f)
-                {
-                    _currentPose = targetPose;
-                    UpdateCameraTransform();
-                    return;
-                }
-
-                while (timer < duration)
-                {
-                    timer += Time.deltaTime;
-                    
-                    // 计算归一化时间进度 [0, 1]
-                    float progress = Mathf.Clamp01(timer / duration);
-
-                    // 在曲线上采样
-                    // 允许曲线值超过1或小于0 (用于制作弹跳/Overshoot效果)
-                    float rotT = Settings.RotationCurve.Evaluate(progress);
-                    float zoomT = Settings.ZoomCurve.Evaluate(progress);
-
-                    // 插值计算
-                    // 注意：对于Yaw(Y轴)，如果希望 "走近路" (比如从350度转到10度只转20度而不是340度)，
-                    // 可以使用 Mathf.LerpAngle。但如果希望完全受控的“回放”，Mathf.Lerp 更可预测。
-                    // 这里保持 Vector3 结构的一致性使用 Lerp，你可以根据需求改为 LerpAngle。
-                    
-                    _currentPose.x = Mathf.LerpUnclamped(startPose.x, targetPose.x, rotT); // Pitch
-                    _currentPose.y = Mathf.LerpAngle(startPose.y, targetPose.y, rotT); // Yaw
-                    _currentPose.z = Mathf.LerpUnclamped(startPose.z, targetPose.z, zoomT); // Distance
-
-                    // 动画过程中依然应用限制，防止曲线 Overshoot 导致穿模或翻转
-                    ClampState();
-                    UpdateCameraTransform();
-
-                    await UniTask.Yield(PlayerLoopTiming.Update, token);
-                }
-
-                // 确保最终精确到达
-                _currentPose = targetPose;
-                ClampState();
-                UpdateCameraTransform();
-            }
-            catch (System.OperationCanceledException)
-            {
-                // 被打断，保持当前位置交给物理系统接管
-            }
-            finally
-            {
-                _isAutoMoving = false;
-                DisposeCts();
-            }
+            float cPitch = Mathf.Clamp(currentPose.Pitch, Settings.PitchLimit.x, Settings.PitchLimit.y);
+            float cDist = Mathf.Clamp(currentPose.Distance, Settings.DistanceLimit.x, Settings.DistanceLimit.y);
+            currentPose = new CameraPose(cPitch, currentPose.Yaw, cDist);
+            
+            if (!LookAtTarget) return;
+            Quaternion rotation = Quaternion.Euler(currentPose.Pitch, currentPose.Yaw, 0);
+            Vector3 position = LookAtTarget.position + rotation * (Vector3.back * currentPose.Distance);
+            transform.rotation = rotation;
+            transform.position = position;
         }
-
-        private void CancelAutoMove()
-        {
-            if (_cts == null) return;
-            _cts.Cancel();
-            DisposeCts();
-            _isAutoMoving = false;
-        }
-
-        private void DisposeCts()
-        {
-            if (_cts != null)
-            {
-                _cts.Dispose();
-                _cts = null;
-            }
-        }
-
-        private void ClampState()
-        {
-            _currentPose.x = Mathf.Clamp(_currentPose.x, Settings.PitchLimit.x, Settings.PitchLimit.y);
-            _currentPose.z = Mathf.Clamp(_currentPose.z, Settings.DistanceLimit.x, Settings.DistanceLimit.y);
-        }
-
-        private void UpdateCameraTransform()
+        
+        private void UpdateTransform()
         {
             if (!LookAtTarget) return;
 
-            Quaternion rotation = Quaternion.Euler(_currentPose.x, _currentPose.y, 0);
-            Vector3 position = LookAtTarget.position + rotation * (Vector3.back * _currentPose.z);
+            Quaternion rotation = Quaternion.Euler(currentPose.Pitch, currentPose.Yaw, 0);
+            // 注意：这里用 Vector3.back * distance 来计算位置
+            Vector3 position = LookAtTarget.position + rotation * (Vector3.back * currentPose.Distance);
 
             transform.rotation = rotation;
             transform.position = position;
