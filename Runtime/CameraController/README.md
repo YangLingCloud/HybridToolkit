@@ -7,6 +7,7 @@
 - **策略模式设计**：通过ICameraMotionStrategy接口支持多种相机运动策略，易于扩展。
 - **手动控制**：ManualMotionStrategy提供基于输入的相机平移、旋转和缩放。
 - **自动对齐**：AutoAlignStrategy使用动画曲线实现平滑的自动归位功能。
+- **自动旋转**：AutoRotateStrategy提供连续的相机环绕旋转功能。
 - **可配置设置**：CameraSettings ScriptableObject允许调整灵敏度、限制和默认姿态。
 - **平滑过渡**：内置插值和动量模型，提供自然的相机运动。
 - **零垃圾回收**：优化性能，减少内存分配。
@@ -103,6 +104,20 @@ if (_cameraController.IsAutoAlignFinished) {
 }
 ```
 
+### 5. 自动旋转示例
+AutoRotateStrategy可让相机围绕目标持续旋转：
+
+```csharp
+// 启动自动旋转，使用默认速度（在CameraSettings中配置）
+_cameraController.StartAutoRotate();
+
+// 启动自动旋转，旋转速度为30度/秒
+_cameraController.StartAutoRotate(30f);
+
+// 停止自动旋转并切换回手动控制
+_cameraController.StopAutoRotate();
+```
+
 ## 文件结构
 
 ```
@@ -112,6 +127,7 @@ CameraController/
 ├── ICameraMotionStrategy.cs     # 相机运动策略接口
 ├── ManualMotionStrategy.cs      # 手动控制策略实现
 ├── AutoAlignStrategy.cs         # 自动对齐策略实现
+├── AutoRotateStrategy.cs        # 自动旋转策略实现
 └── README.md                    # 文档
 ```
 
@@ -158,6 +174,9 @@ public interface ICameraMotionStrategy {
 
 ### 5. 自动对齐策略 (AutoAlignStrategy)
 使用动画曲线平滑地将相机移动到目标姿态，支持自定义持续时间和缓动曲线。
+
+### 6. 自动旋转策略 (AutoRotateStrategy)
+提供连续的相机环绕旋转功能，常用于展示场景或自动预览。支持自定义旋转速度。
 
 ## 使用方法
 

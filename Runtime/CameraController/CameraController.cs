@@ -46,8 +46,9 @@ namespace HybridToolkit.CameraController
     
     public class CameraController : MonoBehaviour
     {
-        public Transform LookAtTarget;
-        public CameraSettings Settings;
+        [SerializeField] Transform LookAtTarget;
+        [SerializeField] CameraSettings Settings;
+        [SerializeField] private Camera targetCamera;
         
         [SerializeField,InspectorReadOnly]
         private CameraPose currentPose;
@@ -63,6 +64,7 @@ namespace HybridToolkit.CameraController
 
         private ManualMotionStrategy _manualStrategy;
         private AutoAlignMotionStrategy _autoAlignStrategy;
+        private AutoRotateStrategy _autoRotateStrategy;
         
         private void Awake()
         {
@@ -71,6 +73,7 @@ namespace HybridToolkit.CameraController
             
             _manualStrategy = new ManualMotionStrategy(Settings);
             _autoAlignStrategy = new AutoAlignMotionStrategy(Settings);
+            _autoRotateStrategy = new AutoRotateStrategy(Settings);
             
             UpdateTransform();
         }
@@ -128,6 +131,10 @@ namespace HybridToolkit.CameraController
                 SwitchToManual();
             }
 
+            if (_activeStrategy==null)
+            {
+                return;
+            }
             // ========================================================
             // ★ 下层执行：调用当前策略计算 (The Executor) ★
             // ========================================================
@@ -158,6 +165,12 @@ namespace HybridToolkit.CameraController
             _autoAlignStrategy.Reset(start, target); // 重置计时器和目标
             _activeStrategy = _autoAlignStrategy;
         }
+        
+        private void SwitchToAutoRotate(float rotationSpeed = 20f)
+        {
+            _autoRotateStrategy.Reset(rotationSpeed); // 重置并激活自动旋转
+            _activeStrategy = _autoRotateStrategy;
+        }
         // ================== Event Handlers ==================
 
         private void OnCameraRotate(CameraRotateEvent evt)
@@ -187,6 +200,23 @@ namespace HybridToolkit.CameraController
                  SwitchToAuto(currentPose, new CameraPose(target));
              }
         }
+        
+        /// <summary>
+        /// 启动自动旋转模式
+        /// </summary>
+        /// <param name="rotationSpeed">旋转速度（度/秒），如果为0则使用默认速度</param>
+        public void StartAutoRotate(float rotationSpeed = 0f)
+        {
+            SwitchToAutoRotate(rotationSpeed > 0 ? rotationSpeed : Settings.AutoRotateSpeed);
+        }
+        
+        /// <summary>
+        /// 停止自动旋转并切换回手动模式
+        /// </summary>
+        public void StopAutoRotate()
+        {
+            SwitchToManual();
+        }
 
         private void ClampAndApply()
         {
@@ -197,8 +227,8 @@ namespace HybridToolkit.CameraController
             if (!LookAtTarget) return;
             Quaternion rotation = Quaternion.Euler(currentPose.Pitch, currentPose.Yaw, 0);
             Vector3 position = LookAtTarget.position + rotation * (Vector3.back * currentPose.Distance);
-            transform.rotation = rotation;
-            transform.position = position;
+            targetCamera.transform.rotation = rotation;
+            targetCamera.transform.position = position;
         }
         
         private void UpdateTransform()
@@ -209,8 +239,8 @@ namespace HybridToolkit.CameraController
             // 注意：这里用 Vector3.back * distance 来计算位置
             Vector3 position = LookAtTarget.position + rotation * (Vector3.back * currentPose.Distance);
 
-            transform.rotation = rotation;
-            transform.position = position;
+            targetCamera.transform.rotation = rotation;
+            targetCamera.transform.position = position;
         }
     }
 }

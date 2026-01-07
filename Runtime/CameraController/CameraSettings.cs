@@ -33,6 +33,10 @@ namespace HybridToolkit.CameraController
         public float AutoMoveDuration = 0.8f; 
         
         [Tooltip("自动归位时间间隔 (秒)")]
-        public float AutoMoveTimeInterval = 5f; 
+        public float AutoMoveTimeInterval = 5f;
+        
+        [Header("Auto Rotate")]
+        [Tooltip("自动旋转的默认速度 (度/秒)")]
+        public float AutoRotateSpeed = 20f; 
     }
 }
