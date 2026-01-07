@@ -2,6 +2,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using HybridToolkit.Events;
+using TouchPhase = UnityEngine.InputSystem.TouchPhase;
 
 namespace HybridToolkit
 {
@@ -10,7 +11,7 @@ namespace HybridToolkit
     /// </summary>
     public class InputCenter : PersistentSingletonMono<InputCenter>
     {
-        // 使用EventBus中的PinchEvent事件
+        // 使用EventPipeline中的PinchEvent事件
         private CameraZoomEvent _zoomEvent = new CameraZoomEvent();
         private CameraRotateEvent _rotateEvent = new CameraRotateEvent();
         private CameraClickEvent _clickEvent = new CameraClickEvent();
@@ -127,7 +128,7 @@ namespace HybridToolkit
                             // 触发相机缩放事件
                             float zoomDelta = (scaleFactor - 1f) * _zoomSensitivity;
                             _zoomEvent.delta = zoomDelta;
-                            EventBus<CameraZoomEvent>.Raise(_zoomEvent);
+                            EventPipeline<CameraZoomEvent>.Raise(_zoomEvent);
                             // 更新上一帧的距离
                             _lastPinchDistance = currentDistance;
 
@@ -205,7 +206,7 @@ namespace HybridToolkit
                             // 触发相机旋转事件
                             Vector2 rotationDelta = touchDelta * _rotationSensitivity;
                             _rotateEvent.delta = rotationDelta;
-                            EventBus<CameraRotateEvent>.Raise(_rotateEvent);
+                            EventPipeline<CameraRotateEvent>.Raise(_rotateEvent);
 
                             // 更新上一帧的触摸位置
                             _lastTouchPosition = touchPosition;
@@ -248,7 +249,7 @@ namespace HybridToolkit
                 _isScaling = false;
             }
 
-#elif UNITY_ANDROID || UNITY_IOS
+#elif UNITY_EDITOR || UNITY_ANDROID || UNITY_IOS
             // 移动端单指触摸点击
             var touchscreen = Touchscreen.current;
             if (touchscreen != null)
@@ -264,7 +265,7 @@ namespace HybridToolkit
                         {
                             Vector2 touchPosition = touch.position.ReadValue();
                             _clickEvent.position = touchPosition;
-                            EventBus<CameraClickEvent>.Raise(_clickEvent);
+                            EventPipeline<CameraClickEvent>.Raise(_clickEvent);
                         }
 
                         // 重置旋转和缩放状态

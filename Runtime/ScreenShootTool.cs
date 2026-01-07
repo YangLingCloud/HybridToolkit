@@ -5,11 +5,6 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Cysharp.Threading.Tasks;
 using HybridToolkit.LogicPipeline;
-using UnityEngine.Experimental.Rendering; // 用于 GraphicsFormat
-
-#if UNITY_URP // 假设你定义了宏，或者是直接在 URP 项目中
-using UnityEngine.Rendering.Universal;
-#endif
 
 namespace HybridToolkit.ScreenShotTool
 {
@@ -66,7 +61,7 @@ namespace HybridToolkit.ScreenShotTool
                 if (ct.IsCancellationRequested) return default;
 
                 // 4. 执行 Blit (处理缩放和翻转)
-                if (cam.targetTexture != null)
+                if (cam.targetTexture)
                 {
                     Graphics.Blit(cam.targetTexture, finalRT);
                 }
