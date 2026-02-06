@@ -92,53 +92,53 @@ namespace HybridToolkit
             var touchscreen = Touchscreen.current;
             if (touchscreen != null)
             {
-                // 获取当前触摸点数量
-                int touchCount = touchscreen.touches.Count;
+                int activeCount = 0;
+                UnityEngine.InputSystem.Controls.TouchControl touch1 = null;
+                UnityEngine.InputSystem.Controls.TouchControl touch2 = null;
+
+                foreach (var touch in touchscreen.touches)
+                {
+                    if (touch.isInProgress)
+                    {
+                        activeCount++;
+                        if (touch1 == null) touch1 = touch;
+                        else if (touch2 == null) touch2 = touch;
+                    }
+                }
 
                 // 只有双指触摸时才检测缩放
-                if (touchCount == 2)
+                if (activeCount == 2 && touch1 != null && touch2 != null)
                 {
-                    var touch1 = touchscreen.touches[0];
-                    var touch2 = touchscreen.touches[1];
+                    // 获取两个触摸点的位置
+                    Vector2 pos1 = touch1.position.ReadValue();
+                    Vector2 pos2 = touch2.position.ReadValue();
 
-                    // 检查两个触摸点是否都处于活动状态
-                    if (touch1.isInProgress && touch2.isInProgress)
+                    // 计算双指之间的距离
+                    float currentDistance = Vector2.Distance(pos1, pos2);
+
+                    // 如果是刚开始双指触摸，记录初始距离
+                    if (!_isPinching)
                     {
-                        // 获取两个触摸点的位置
-                        Vector2 pos1 = touch1.position.ReadValue();
-                        Vector2 pos2 = touch2.position.ReadValue();
-
-                        // 计算双指之间的距离
-                        float currentDistance = Vector2.Distance(pos1, pos2);
-
-                        // 如果是刚开始双指触摸，记录初始距离
-                        if (!_isPinching)
-                        {
-                            _isPinching = true;
-                            _lastPinchDistance = currentDistance;
-                            return;
-                        }
-
-                        // 计算缩放因子
-                        float scaleFactor = currentDistance / _lastPinchDistance;
-
-                        // 只有当缩放因子变化明显时才触发事件
-                        if (Mathf.Abs(scaleFactor - 1f) > 0.01f)
-                        {
-                            // 触发相机缩放事件
-                            float zoomDelta = (scaleFactor - 1f) * _zoomSensitivity;
-                            _zoomEvent.delta = zoomDelta;
-                            EventPipeline<CameraZoomEvent>.Raise(_zoomEvent);
-                            // 更新上一帧的距离
-                            _lastPinchDistance = currentDistance;
-
-                            // 标记正在进行缩放操作
-                            _isScaling = true;
-                        }
+                        _isPinching = true;
+                        _lastPinchDistance = currentDistance;
+                        return;
                     }
-                    else
+
+                    // 计算缩放因子
+                    float scaleFactor = currentDistance / _lastPinchDistance;
+
+                    // 只有当缩放因子变化明显时才触发事件
+                    if (Mathf.Abs(scaleFactor - 1f) > 0.01f)
                     {
-                        _isPinching = false;
+                        // 触发相机缩放事件
+                        float zoomDelta = (scaleFactor - 1f) * _zoomSensitivity;
+                        _zoomEvent.delta = zoomDelta;
+                        EventPipeline<CameraZoomEvent>.Raise(_zoomEvent);
+                        // 更新上一帧的距离
+                        _lastPinchDistance = currentDistance;
+
+                        // 标记正在进行缩放操作
+                        _isScaling = true;
                     }
                 }
                 else
@@ -181,43 +181,47 @@ namespace HybridToolkit
             // 移动端单指触摸旋转
 
             var touchscreen = Touchscreen.current;
+            if (touchscreen != null)
             {
-                int touchCount = touchscreen.touches.Count;
-                // 单指触摸且不是双指缩放时检测旋转
-                if (touchCount == 1 && !_isPinching)
+                int activeCount = 0;
+                UnityEngine.InputSystem.Controls.TouchControl activeTouch = null;
+
+                foreach (var touch in touchscreen.touches)
                 {
-                    var touch = touchscreen.touches[0];
                     if (touch.isInProgress)
                     {
-                        Vector2 touchPosition = touch.position.ReadValue();
-
-                        // 如果是刚开始触摸，记录初始位置
-                        if (!_isRotating)
-                        {
-                            _isRotating = true;
-                            _lastTouchPosition = touchPosition;
-                            return;
-                        }
-
-                        // 计算触摸移动差值
-                        Vector2 touchDelta = touchPosition - _lastTouchPosition;
-                        if (touchDelta.magnitude > 0.01f)
-                        {
-                            // 触发相机旋转事件
-                            Vector2 rotationDelta = touchDelta * _rotationSensitivity;
-                            _rotateEvent.delta = rotationDelta;
-                            EventPipeline<CameraRotateEvent>.Raise(_rotateEvent);
-
-                            // 更新上一帧的触摸位置
-                            _lastTouchPosition = touchPosition;
-                        }
-                    }
-                    else
-                    {
-                        _isRotating = false;
+                        activeCount++;
+                        activeTouch = touch;
                     }
                 }
-                else if (touchCount == 0)
+
+                // 单指触摸且不是双指缩放时检测旋转
+                if (activeCount == 1 && activeTouch != null && !_isPinching)
+                {
+                    Vector2 touchPosition = activeTouch.position.ReadValue();
+
+                    // 如果是刚开始触摸，记录初始位置
+                    if (!_isRotating)
+                    {
+                        _isRotating = true;
+                        _lastTouchPosition = touchPosition;
+                        return;
+                    }
+
+                    // 计算触摸移动差值
+                    Vector2 touchDelta = touchPosition - _lastTouchPosition;
+                    if (touchDelta.magnitude > 0.01f)
+                    {
+                        // 触发相机旋转事件
+                        Vector2 rotationDelta = touchDelta * _rotationSensitivity;
+                        _rotateEvent.delta = rotationDelta;
+                        EventPipeline<CameraRotateEvent>.Raise(_rotateEvent);
+
+                        // 更新上一帧的触摸位置
+                        _lastTouchPosition = touchPosition;
+                    }
+                }
+                else
                 {
                     _isRotating = false;
                 }
@@ -254,24 +258,28 @@ namespace HybridToolkit
             var touchscreen = Touchscreen.current;
             if (touchscreen != null)
             {
-                int touchCount = touchscreen.touches.Count;
-                if (touchCount == 1)
-                {
-                    var touch = touchscreen.touches[0];
-                    if (touch.phase.ReadValue() == TouchPhase.Ended)
-                    {
-                        // 如果没有进行旋转或缩放操作，才触发点击事件
-                        if (!_isRotating && !_isScaling)
-                        {
-                            Vector2 touchPosition = touch.position.ReadValue();
-                            _clickEvent.position = touchPosition;
-                            EventPipeline<CameraClickEvent>.Raise(_clickEvent);
-                        }
+                bool hasActiveTouches = false;
+                UnityEngine.InputSystem.Controls.TouchControl endedTouch = null;
 
-                        // 重置旋转和缩放状态
-                        _isRotating = false;
-                        _isScaling = false;
+                foreach (var touch in touchscreen.touches)
+                {
+                    if (touch.isInProgress) hasActiveTouches = true;
+                    if (touch.phase.ReadValue() == TouchPhase.Ended) endedTouch = touch;
+                }
+
+                if (!hasActiveTouches && endedTouch != null)
+                {
+                    // 如果没有进行旋转或缩放操作，才触发点击事件
+                    if (!_isRotating && !_isScaling)
+                    {
+                        Vector2 touchPosition = endedTouch.position.ReadValue();
+                        _clickEvent.position = touchPosition;
+                        EventPipeline<CameraClickEvent>.Raise(_clickEvent);
                     }
+
+                    // 重置旋转和缩放状态
+                    _isRotating = false;
+                    _isScaling = false;
                 }
             }
 #endif
