@@ -15,6 +15,7 @@
 
 - **自定义属性系统**：
   - ReadOnlyAttribute：只读属性显示
+  - ReflectiveInvokeAttribute：反射调用标记，标记的方法在编辑器窗口中可视化执行
   - ConditionalDisplayAttribute：条件显示属性
   - ValidateInputAttribute：输入验证属性
   - ColorPickerAttribute：颜色选择器属性
@@ -42,7 +43,48 @@
 
 ### 代码示例
 
-#### 1. 只读属性
+#### 1. 反射调用特性
+```csharp
+using HybridToolkit;
+using UnityEngine;
+
+public class GameService
+{
+    // 无参数方法
+    [ReflectiveInvoke("重置游戏")]
+    public static void ResetGame()
+    {
+        Debug.Log("游戏已重置");
+    }
+
+    // 带基本参数
+    [ReflectiveInvoke("设置难度")]
+    public static void SetDifficulty(int level, string name)
+    {
+        Debug.Log($"难度设为: {level} ({name})");
+    }
+
+    // 带复杂参数（自动展开字段）
+    [ReflectiveInvoke("生成敌人")]
+    public static void SpawnEnemy(SpawnConfig config)
+    {
+        Debug.Log($"在 {config.Position} 生成 {config.Count} 个敌人");
+    }
+}
+
+public class SpawnConfig
+{
+    public Vector3 Position;
+    public int Count;
+    public float Radius;
+}
+
+// 使用方式：
+// 打开 HybridToolkit > 反射调用窗口，标记的方法会自动显示
+// 填写参数后点击"执行"按钮即可调用方法
+```
+
+#### 2. 只读属性
 ```csharp
 using HybridToolkit.CustomAttribute;
 using UnityEngine;
@@ -163,13 +205,16 @@ public class ColorExample : MonoBehaviour {
 
 ```
 CustomAttribute/
+├── InspectorReadOnlyAttribute.cs      # 只读属性
+├── InspectorButtonAttribute.cs        # Inspector按钮属性
+├── ReflectiveInvokeAttribute.cs       # 反射调用标记属性
 ├── Attributes/
-│   ├── ReadOnlyAttribute.cs         # 只读属性
+│   ├── ReadOnlyAttribute.cs           # 只读属性
 │   ├── ConditionalDisplayAttribute.cs # 条件显示属性
-│   ├── ValidateInputAttribute.cs    # 输入验证属性
-│   ├── ColorPickerAttribute.cs      # 颜色选择器属性
-│   ├── ButtonAttribute.cs           # 按钮属性
-│   └── PropertyDrawerAttribute.cs   # 属性绘制器属性
+│   ├── ValidateInputAttribute.cs      # 输入验证属性
+│   ├── ColorPickerAttribute.cs        # 颜色选择器属性
+│   ├── ButtonAttribute.cs             # 按钮属性
+│   └── PropertyDrawerAttribute.cs     # 属性绘制器属性
 ├── Accessors/
 │   ├── PropertyAccessor.cs          # 属性访问器
 │   ├── PropertyValidator.cs         # 属性验证器

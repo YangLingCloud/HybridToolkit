@@ -16,6 +16,7 @@ Unity编辑器扩展工具集合，提供Inspector界面增强和编辑器功能
 - **Inspector增强**：扩展Unity Inspector面板功能
 - **按钮工具**：在Inspector中创建可点击的方法按钮
 - **只读绘制器**：提供Inspector属性只读显示功能
+- **反射调用窗口**：基于UIToolkit的独立编辑器窗口，可视化执行标记了 `[ReflectiveInvoke]` 的方法
 - **参数支持**：支持多种参数类型的按钮配置
 - **模式控制**：支持播放模式和编辑模式的独立控制
 - **批量操作**：支持对多个对象同时执行方法
@@ -245,9 +246,7 @@ public class InspectorButtonDrawer : PropertyDrawer
 Editor/
 ├── InspectorButtonEditor.cs       # InspectorButton编辑器实现
 ├── InspectorReadOnlyDrawer.cs     # 只读属性绘制器
-├── InspectorButtonAttribute.cs    # 按钮特性定义
-├── ReadOnlyInspectorAttribute.cs  # 只读特性定义
-├── EditorGUIExtensions.cs         # 编辑器GUI扩展工具
+├── ReflectiveInvokeWindow.cs      # 反射调用编辑器窗口（UIToolkit）
 └── README.md                      # 文档
 ```
 
@@ -379,6 +378,38 @@ public static class EditorGUIExtensions
 6. **文档注释**：为按钮方法添加XML文档注释
 7. **性能考虑**：避免在按钮方法中执行耗时操作
 
+### 5. ReflectiveInvokeWindow
+
+基于 UIToolkit 的独立编辑器窗口，扫描并执行标记了 `[ReflectiveInvoke]` 特性的方法：
+
+- **打开方式**：菜单 `HybridToolkit > 反射调用窗口`
+- **自动扫描**：窗口打开时自动扫描所有程序集，无需手动刷新
+- **卡片式布局**：按类分组显示，每个类有独立的折叠卡片
+- **参数编辑**：简单类型直接显示输入控件，复杂类型展开为字段级编辑器
+- **执行按钮**：每个方法提供独立执行按钮，每个类提供"执行所有方法"按钮
+- **实例方法支持**：对于 `UnityEngine.Object` 子类，提供目标对象选择器
+- **static/instance 徽章**：彩色标识方法类型
+
+```csharp
+// 标记方法后，打开反射调用窗口即可使用
+using HybridToolkit;
+
+public class DebugTools
+{
+    [ReflectiveInvoke("清理缓存")]
+    public static void ClearCache()
+    {
+        Debug.Log("缓存已清理");
+    }
+    
+    [ReflectiveInvoke("设置帧率")]
+    public static void SetFrameRate(int fps)
+    {
+        Application.targetFrameRate = fps;
+    }
+}
+```
+
 ### 注意事项
 
 1. **方法要求**：InspectorButton只能用于实例方法（非静态方法）
@@ -388,3 +419,4 @@ public static class EditorGUIExtensions
 5. **编辑模式限制**：某些功能在编辑模式下可能不可用
 6. **反射性能**：大量使用反射可能影响性能
 7. **版本兼容性**：确保编辑器工具与Unity版本兼容
+8. **反射调用窗口**：`ReflectiveInvokeWindow` 使用 UIToolkit（`CreateGUI`），不使用 IMGUI

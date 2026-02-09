@@ -51,11 +51,24 @@
   - `PersistentSingletonMono<T>` - 场景切换时不会被销毁的持久化单例
   - `RegulatorSingletonMono<T>` - 通过初始化时间管理多个实例的调节型单例
 
+### 反射调用系统 (Reflective Invoke)
+基于反射的方法调用系统，通过编辑器窗口可视化执行标记方法：
+- 通过 `[ReflectiveInvoke]` 特性标记方法，自动在 EditorWindow 中显示
+- 反射获取方法参数类型及参数内部字段类型
+- 支持基元类型、Unity值类型、枚举、UnityEngine.Object及自定义复杂类型
+- 复杂类型参数自动展开为字段级别编辑器
+- 每个类提供"执行所有方法"按钮，每个方法提供独立执行按钮
+- 基于 UIToolkit 的现代化编辑器界面
+
 ### 自定义特性
 - **InspectorReadOnlyAttribute** - 使字段在Inspector面板中显示为只读
   - 支持各种数据类型（包括基本类型、Vector、数组等）
   - 运行时仍可通过代码修改字段值
   - 通过InspectorReadOnlyDrawer实现绘制逻辑
+- **ReflectiveInvokeAttribute** - 标记方法使其在反射调用窗口中显示
+  - 支持自定义标签名称
+  - 支持静态方法和实例方法
+  - 配合 MethodReflector 和 ReflectiveInvokeWindow 使用
 
 ### 编辑器工具
 - **InspectorButton工具** - 在Inspector中为MonoBehaviour方法添加可点击按钮
@@ -63,6 +76,10 @@
   - 支持自定义按钮名称
   - 支持多种参数类型输入
   - 提供展开/折叠的参数面板
+- **ReflectiveInvokeWindow** - 基于 UIToolkit 的反射调用编辑器窗口
+  - 打开时自动扫描所有标记方法
+  - 卡片式布局，按类分组显示
+  - 支持填写参数并直接执行方法
 
 ### 输入中心
 统一输入管理系统：
@@ -165,6 +182,7 @@ public class PlayerController : MonoBehaviour {
 - **事件管线系统**：`Runtime/EventPipeline/README.md`
 - **单例模式实现**：`Runtime/Singleton/README.md`
 - **自定义特性**：`Runtime/CustomAttribute/README.md`
+- **反射调用系统**：`Runtime/Reflection/README.md`
 - **编辑器工具**：`Editor/README.md`
 - **输入中心**：`Runtime/InputCenter/README.md`
 
@@ -176,8 +194,9 @@ public class PlayerController : MonoBehaviour {
 | **相机控制器** | 基于策略模式的灵活3D相机控制系统 | `Runtime/CameraController/` | 策略模式设计、手动控制、自动对齐、平滑过渡、输入集成 |
 | **事件管线** | 高性能异步事件管线系统 | `Runtime/EventPipeline/` | 异步管线、零GC、优先级排序、阶段锁定 |
 | **单例模式** | 多种单例模式实现 | `Runtime/Singleton/` | 持久化、调节型、泛型支持 |
-| **自定义特性** | Inspector增强工具 | `Runtime/CustomAttribute/` | 只读显示、按钮工具 |
-| **编辑器工具** | Inspector按钮等工具 | `Editor/` | 运行时支持、参数面板 |
+| **反射调用** | 反射方法调用系统 | `Runtime/Reflection/` | 方法扫描、参数反射、字段解析 |
+| **自定义特性** | Inspector增强工具 | `Runtime/CustomAttribute/` | 只读显示、按钮工具、反射调用标记 |
+| **编辑器工具** | Inspector按钮及反射调用窗口 | `Editor/` | 运行时支持、参数面板、UIToolkit窗口 |
 | **输入中心** | 统一输入管理 | `Runtime/InputCenter/` | 多平台支持、手势识别 |
 
 ### 项目结构
@@ -190,11 +209,13 @@ Assets/HybridToolkit/
 │   ├── EventPipeline/             # 事件管线系统
 │   ├── Singleton/                 # 单例模式
 │   ├── CustomAttribute/           # 自定义特性
+│   ├── Reflection/                # 反射调用系统
 │   ├── InputCenter/               # 输入中心
 │   └── com.LingYun.HybridToolkit.asmdef
 ├── Editor/                     # 编辑器工具
 │   ├── InspectorButtonEditor.cs
 │   ├── InspectorReadOnlyDrawer.cs
+│   ├── ReflectiveInvokeWindow.cs
 │   └── com.LingYun.HybridToolkit.Editor.asmdef
 ├── package.json               # 包配置
 ├── CHANGELOG.md              # 更新日志
@@ -228,6 +249,9 @@ using HybridToolkit.Singleton;
 // 自定义特性和工具类
 using HybridToolkit.CustomAttribute;
 
+// 反射调用系统
+using HybridToolkit.Reflection;
+
 // 输入中心相关
 using HybridToolkit.InputCenter;
 ```
@@ -258,13 +282,22 @@ using HybridToolkit.InputCenter;
 - `PersistentSingletonMono<T>` - 持久化单例
 - `RegulatorSingletonMono<T>` - 调节型单例
 
+#### 反射调用
+- `MethodReflector` - 方法反射扫描器
+- `ReflectedTypeInfo` - 类型反射信息
+- `ReflectedMethodInfo` - 方法反射信息
+- `ReflectedParameterInfo` - 参数反射信息（含字段列表）
+- `ReflectedFieldInfo` - 字段反射信息
+
 #### 自定义特性
 - `InspectorReadOnlyAttribute` - 只读显示特性
 - `InspectorButtonAttribute` - Inspector按钮特性
+- `ReflectiveInvokeAttribute` - 反射调用标记特性
 
 #### 编辑器工具
 - `InspectorButtonEditor` - Inspector按钮编辑器
 - `InspectorReadOnlyDrawer` - 只读字段绘制器
+- `ReflectiveInvokeWindow` - 反射调用编辑器窗口（UIToolkit）
 
 ## 提交规范
 
